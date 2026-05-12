@@ -28,24 +28,46 @@ import com.example.minhasaudefeminina.ui.theme.BackgroundFeminino
 import com.example.minhasaudefeminina.ui.theme.RosaClaro
 import com.example.minhasaudefeminina.ui.theme.RosaPrimario
 import com.example.minhasaudefeminina.ui.theme.RosaSecundario
+import com.example.minhasaudefeminina.viewmodel.SalvarState
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
+import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
-    var dataSelecionada by remember { mutableStateOf(SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())) }
+    val dataFormatada = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
     var sintomaSelecionado by remember { mutableStateOf<SintomaTipo?>(null) }
     var intensidade by remember { mutableIntStateOf(3) }
     var notas by remember { mutableStateOf("") }
-    
+
     val alertas by viewModel.alertas.collectAsState()
+    val salvarState by viewModel.salvarState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Exibe alertas médicos via Snackbar
     LaunchedEffect(alertas) {
         if (alertas.isNotEmpty()) {
             snackbarHostState.showSnackbar(alertas.joinToString("\n"))
             viewModel.limparAlertas()
+        }
+    }
+
+    // Reage ao resultado do salvamento
+    LaunchedEffect(salvarState) {
+        when (val state = salvarState) {
+            is SalvarState.Sucesso -> {
+                snackbarHostState.showSnackbar("Registro salvo com sucesso!")
+                sintomaSelecionado = null
+                intensidade = 3
+                notas = ""
+                viewModel.resetarSalvarState()
+            }
+            is SalvarState.Erro -> {
+                snackbarHostState.showSnackbar("Erro ao salvar: ${state.mensagem}")
+                viewModel.resetarSalvarState()
+            }
+            else -> Unit
         }
     }
 
@@ -69,9 +91,9 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                 modifier = Modifier.padding(bottom = 20.dp)
             )
 
-            // Campo Data
+            // Campo Data (somente leitura — usa a data atual)
             OutlinedTextField(
-                value = dataSelecionada,
+                value = dataFormatada,
                 onValueChange = { },
                 label = { Text("Data do Registro") },
                 modifier = Modifier.fillMaxWidth(),
@@ -161,7 +183,9 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                 onValueChange = { notas = it },
                 label = { Text("Notas Opcionais") },
                 placeholder = { Text("Descreva como se sente...") },
-                modifier = Modifier.fillMaxWidth().height(120.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RosaPrimario,
                     unfocusedBorderColor = RosaClaro
@@ -170,7 +194,7 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Alerta Médico Obrigatório
+            // Aviso médico obrigatório
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4F4)),
                 shape = RoundedCornerShape(8.dp),
@@ -178,7 +202,12 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                 border = BorderStroke(1.dp, RosaPrimario)
             ) {
                 Row(modifier = Modifier.padding(15.dp)) {
-                    Box(modifier = Modifier.width(5.dp).fillMaxHeight().background(RosaPrimario))
+                    Box(
+                        modifier = Modifier
+                            .width(5.dp)
+                            .fillMaxHeight()
+                            .background(RosaPrimario)
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Essas informações não substituem avaliação médica. Procure sempre a UBS.",
@@ -192,24 +221,37 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
             Spacer(modifier = Modifier.height(25.dp))
 
             // Botão Salvar
+            val carregando = salvarState is SalvarState.Carregando
             Button(
                 onClick = {
-                    sintomaSelecionado?.let {
+                    sintomaSelecionado?.let { tipo ->
                         viewModel.salvarRegistro(
                             RegistroSintoma(
-                                usuarioId = "user-id",
-                                tipo = it,
+                                usuarioId = "user-id", // substituir pelo UID do Firebase Auth
+                                data = Timestamp.now(),
+                                tipo = tipo.name,
                                 intensidade = intensidade,
                                 notas = notas
                             )
                         )
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                enabled = sintomaSelecionado != null && !carregando,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = RosaPrimario),
                 shape = RoundedCornerShape(30.dp)
             ) {
-                Text("Salvar Registro", fontSize = 18.sp, color = Color.White)
+                if (carregando) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Salvar Registro", fontSize = 18.sp, color = Color.White)
+                }
             }
         }
     }

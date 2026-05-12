@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "844871454849",
+    "project_id": "minhasaudefeminina",
+    "storage_bucket": "minhasaudefeminina.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:844871454849:android:ed9b7be9866af5609cfd80",
+        "android_client_info": {
+          "package_name": "com.example.minhasaudefeminina"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmuRJ05gaQNLdl_93_xKpjnof_fdF7igQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
