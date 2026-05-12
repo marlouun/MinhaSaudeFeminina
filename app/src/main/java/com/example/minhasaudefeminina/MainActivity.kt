@@ -17,10 +17,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.minhasaudefeminina.ui.screens.HomeScreen
+import com.example.minhasaudefeminina.ui.screens.RegistrarSintomaScreen
 import com.example.minhasaudefeminina.ui.theme.MinhaSaudeFemininaTheme
+import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,10 +35,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@PreviewScreenSizes
 @Composable
 fun MinhaSaudeFemininaApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    val sintomasViewModel: SintomasViewModel = viewModel()
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -46,7 +47,7 @@ fun MinhaSaudeFemininaApp() {
                     icon = {
                         Icon(
                             painterResource(it.icon),
-                            contentDescription = it.label
+                            contentDescription = it.label,
                         )
                     },
                     label = { Text(it.label) },
@@ -57,10 +58,20 @@ fun MinhaSaudeFemininaApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            when (currentDestination) {
+                AppDestinations.HOME -> {
+                    HomeScreen()
+                }
+                AppDestinations.REGISTER -> {
+                    RegistrarSintomaScreen(viewModel = sintomasViewModel)
+                }
+                else -> {
+                    Text(
+                        text = "Tela em desenvolvimento",
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+            }
         }
     }
 }
@@ -70,22 +81,6 @@ enum class AppDestinations(
     val icon: Int,
 ) {
     HOME("Home", R.drawable.ic_home),
-    FAVORITES("Favorites", R.drawable.ic_favorite),
-    PROFILE("Profile", R.drawable.ic_account_box),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    MinhaSaudeFemininaTheme {
-        Greeting("Android")
-    }
+    REGISTER("Registrar", R.drawable.ic_favorite),
+    PROFILE("Perfil", R.drawable.ic_account_box),
 }
