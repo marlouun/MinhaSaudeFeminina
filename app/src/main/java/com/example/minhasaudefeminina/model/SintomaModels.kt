@@ -26,69 +26,156 @@ enum class SintomaTipo(val label: String) {
 }
 
 /**
- * Registro de sintoma persistido no Firestore.
- * Todos os campos têm valor padrão para que o Firestore consiga
- * desserializar via toObject<RegistroSintoma>().
- *
- * Coleção: registrosSintomas
+ * Tabela: usuario (DER)
+ */
+data class Usuario(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val nome: String = "",
+    val email: String = "",
+    val foto_url: String? = null,
+    val criado_em: Timestamp = Timestamp.now(),
+    val atualizado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: perfil_usuario (DER)
+ */
+data class PerfilUsuario(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val usuario_id: String = "",
+    val fase_vida: String = FaseVida.IDADE_REPRODUTIVA.name,
+    val data_papanicolau: Timestamp? = null,
+    val data_mamografia: Timestamp? = null,
+    val atualizado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: configuracao_usuario (DER)
+ */
+data class ConfiguracaoUsuario(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val usuario_id: String = "",
+    val notificacoes: Boolean = true,
+    val compartilhar_dados: Boolean = false,
+    val atualizado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: registro_sintoma (DER)
  */
 data class RegistroSintoma(
     @DocumentId
     val id: String = UUID.randomUUID().toString(),
-    val usuarioId: String = "",
+    val usuario_id: String = "",
     val data: Timestamp = Timestamp.now(),
-    val tipo: String = "",           // nome do enum SintomaTipo (ex: "SANGRAMENTO")
-    val intensidade: Int = 1,        // 1 a 5
-    val notas: String = "",
-    val faseVidaNaData: String = "", // nome do enum FaseVida
-    val alertaGerado: Boolean = false,
-    val criadoEm: Timestamp = Timestamp.now()
+    val tipo: String = "",
+    val intensidade: Int = 1,
+    val notas: String? = null,
+    val criado_em: Timestamp = Timestamp.now()
 )
 
 /**
- * Perfil da usuária persistido no Firestore.
- * Coleção: usuarios
+ * Tabela: ciclo_menstrual (DER)
  */
-data class Usuario(
+data class CicloMenstrual(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val usuario_id: String = "",
+    val data_inicio: Timestamp = Timestamp.now(),
+    val duracao_ciclo_dias: Int = 28,
+    val duracao_periodo_dias: Int = 5,
+    val notas: String? = null,
+    val criado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: dados_gestacao (DER)
+ */
+data class DadosGestacao(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val usuario_id: String = "",
+    val esta_gestante: Boolean = false,
+    val data_dum: Timestamp? = null,
+    val data_parto_prevista: Timestamp? = null,
+    val atualizado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: consulta_prenatal (DER)
+ */
+data class ConsultaPrenatal(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val gestacao_id: String = "",
+    val titulo: String = "",
+    val data: Timestamp = Timestamp.now(),
+    val notas: String? = null,
+    val concluida: Boolean = false,
+    val criado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: mensagem_chat (DER)
+ */
+data class MensagemChat(
+    @DocumentId
+    val id: String = UUID.randomUUID().toString(),
+    val usuario_id: String? = null,
+    val sessao_id: String = UUID.randomUUID().toString(),
+    val texto: String = "",
+    val is_usuario: Boolean = true,
+    val enviado_em: Timestamp = Timestamp.now()
+)
+
+/**
+ * Tabela: categoria_artigo (DER)
+ */
+data class CategoriaArtigo(
     @DocumentId
     val id: String = "",
-    val nome: String = "",
-    val dataNascimento: String = "",  // formato ISO: "yyyy-MM-dd"
-    val faseVida: String = FaseVida.IDADE_REPRODUTIVA.name,
-    val duracaoCicloMedia: Int = 28,
-    val duracaoMenstruacaoMedia: Int = 5,
-    val criadoEm: Timestamp = Timestamp.now(),
-    val ultimaAtualizacao: Timestamp = Timestamp.now()
+    val label: String = "",
+    val icone: String = "",
+    val cor: String = ""
 )
 
 /**
- * Alerta médico gerado automaticamente ao salvar um sintoma de alta intensidade.
- * Coleção: alertasGerados
+ * Tabela: artigo (DER)
  */
-data class AlertaGerado(
+data class Artigo(
     @DocumentId
-    val id: String = UUID.randomUUID().toString(),
-    val usuarioId: String = "",
-    val registroSintomaId: String = "",
-    val mensagem: String = "",
-    val tipoSintoma: String = "",
-    val intensidade: Int = 0,
-    val geradoEm: Timestamp = Timestamp.now(),
-    val visualizado: Boolean = false
+    val id: String = "",
+    val categoria_id: String = "",
+    val titulo: String = "",
+    val resumo: String = "",
+    val conteudo: String = "",
+    val referencias: List<String> = emptyList(),
+    val criado_em: Timestamp = Timestamp.now(),
+    val atualizado_em: Timestamp = Timestamp.now(),
+    // Helper para UI
+    val categoria: String = ""
 )
 
 /**
- * Ciclo menstrual registrado.
- * Coleção: ciclos
+ * Tabela: violentometro_nivel (DER)
  */
-data class Ciclo(
+data class ViolentometroNivel(
+    val nivel: Int = 1,
+    val cor: String = "",
+    val cor_fundo: String = "",
+    val label: String = ""
+)
+
+/**
+ * Tabela: violentometro_item (DER)
+ */
+data class ViolentometroItem(
     @DocumentId
     val id: String = UUID.randomUUID().toString(),
-    val usuarioId: String = "",
-    val dataInicio: String = "",  // formato ISO: "yyyy-MM-dd"
-    val dataFim: String = "",
-    val duracao: Int = 0,         // duração da menstruação em dias
-    val duracaoCiclo: Int = 28,   // dias desde o início do ciclo anterior
-    val notas: String = "",
-    val criadoEm: Timestamp = Timestamp.now()
+    val nivel: Int = 1,
+    val descricao: String = "",
+    val ordem: Int = 0
 )

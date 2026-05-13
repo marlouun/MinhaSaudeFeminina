@@ -9,12 +9,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,12 +27,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.minhasaudefeminina.ui.screens.HomeScreen
-import com.example.minhasaudefeminina.ui.screens.RegistrarSintomaScreen
+import com.example.minhasaudefeminina.ui.screens.*
 import com.example.minhasaudefeminina.ui.theme.MinhaSaudeFemininaTheme
 import com.example.minhasaudefeminina.ui.theme.RosaPrimario
 import com.example.minhasaudefeminina.ui.theme.RosaSecundario
-import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
+import com.example.minhasaudefeminina.viewmodel.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,8 +39,32 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MinhaSaudeFemininaTheme {
-                MinhaSaudeFemininaApp()
+                MainContainer()
             }
+        }
+    }
+}
+
+@Composable
+fun MainContainer() {
+    val authViewModel: AuthViewModel = viewModel()
+    val authState by authViewModel.authState.collectAsState()
+
+    when (val state = authState) {
+        is AuthState.Authenticated -> {
+            MinhaSaudeFemininaApp()
+        }
+        is AuthState.Unauthenticated -> {
+            LoginScreen(viewModel = authViewModel)
+        }
+        is AuthState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = RosaPrimario)
+            }
+        }
+        else -> {
+            // Idle ou Error tratados na LoginScreen
+            LoginScreen(viewModel = authViewModel)
         }
     }
 }
@@ -49,11 +73,16 @@ class MainActivity : ComponentActivity() {
 fun MinhaSaudeFemininaApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     val sintomasViewModel: SintomasViewModel = viewModel()
+    val chatViewModel: ChatViewModel = viewModel()
+    val perfilViewModel: PerfilViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
-            CustomBottomBar(currentDestination) {
-                currentDestination = it
+            Column {
+                CustomBottomBar(currentDestination) {
+                    currentDestination = it
+                }
+                Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
             }
         },
         floatingActionButton = {
@@ -62,7 +91,8 @@ fun MinhaSaudeFemininaApp() {
                 shape = CircleShape,
                 containerColor = RosaSecundario,
                 contentColor = Color.White,
-                modifier = Modifier.offset(y = 50.dp), // Push FAB down into the bottom bar gap
+                modifier = Modifier.offset(y = 55.dp),
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Registrar")
             }
@@ -71,14 +101,11 @@ fun MinhaSaudeFemininaApp() {
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (currentDestination) {
-                AppDestinations.HOME -> HomeScreen()
+                AppDestinations.HOME -> HomeScreen(viewModel = sintomasViewModel)
+                AppDestinations.DUVIDAS -> ChatScreen(viewModel = chatViewModel)
+                AppDestinations.CONTEUDO -> EducacaoScreen()
+                AppDestinations.PERFIL -> PerfilScreen(viewModel = perfilViewModel)
                 AppDestinations.REGISTER -> RegistrarSintomaScreen(viewModel = sintomasViewModel)
-                else -> {
-                    Text(
-                        text = "Tela em desenvolvimento",
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
             }
         }
     }
@@ -89,25 +116,29 @@ fun CustomBottomBar(
     currentDestination: AppDestinations,
     onDestinationSelected: (AppDestinations) -> Unit
 ) {
-    BottomAppBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp,
-        modifier = Modifier.height(70.dp)
+    Surface(
+        color = Color.White,
+        tonalElevation = 0.dp,
+        modifier = Modifier.height(70.dp).fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppDestinations.entries.take(2).forEach { destination ->
+            val items = AppDestinations.entries.filter { it != AppDestinations.REGISTER }
+            
+            // Lado Esquerdo
+            items.take(2).forEach { destination ->
                 BottomBarItem(destination, currentDestination == destination) {
                     onDestinationSelected(destination)
                 }
             }
             
-            Spacer(modifier = Modifier.width(60.dp)) // Space for FAB
+            Spacer(modifier = Modifier.width(60.dp)) // Espaço para o FAB central
             
-            AppDestinations.entries.drop(2).forEach { destination ->
+            // Lado Direito
+            items.drop(2).forEach { destination ->
                 BottomBarItem(destination, currentDestination == destination) {
                     onDestinationSelected(destination)
                 }
@@ -144,9 +175,9 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    HOME("Hoje", Icons.Default.Home),
-    CICLO("Ciclo", Icons.Default.CalendarMonth),
-    CONTEUDO("Conteudos", Icons.Default.Lightbulb),
-    PERFIL("Perfil", Icons.Default.Person),
+    HOME("Hoje", Icons.Outlined.CalendarToday),
+    DUVIDAS("Dúvidas", Icons.Outlined.ChatBubbleOutline),
+    CONTEUDO("Conteudos", Icons.Outlined.Lightbulb),
+    PERFIL("Perfil", Icons.Outlined.PersonOutline),
     REGISTER("Registrar", Icons.Default.Add)
 }

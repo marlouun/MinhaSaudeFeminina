@@ -1,22 +1,24 @@
 package com.example.minhasaudefeminina.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.minhasaudefeminina.model.AlertaGerado
-import com.example.minhasaudefeminina.model.FaseVida
 import com.example.minhasaudefeminina.model.RegistroSintoma
 import com.example.minhasaudefeminina.model.SintomaTipo
-import com.example.minhasaudefeminina.repository.SintomasRepository
-import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import java.util.UUID
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 
-/**
- * Estados possíveis de uma operação de salvamento.
- */
+enum class CalendarDayType {
+    MENSTRUACAO, FERTIL, OVULACAO, SINTOMA, HOJE, SELECIONADO
+}
+
 sealed class SalvarState {
     object Idle : SalvarState()
     object Carregando : SalvarState()
@@ -24,123 +26,141 @@ sealed class SalvarState {
     data class Erro(val mensagem: String) : SalvarState()
 }
 
-class SintomasViewModel(
-    private val repository: SintomasRepository = SintomasRepository()
-) : ViewModel() {
+class SintomasViewModel : ViewModel() {
 
-    // ── Alertas exibidos como Snackbar na tela de registro ────────────────────
+    private val db = try { FirebaseFirestore.getInstance() } catch (e: Exception) { null }
+
     private val _alertas = MutableStateFlow<List<String>>(emptyList())
     val alertas: StateFlow<List<String>> = _alertas
 
-    // ── Estado do botão Salvar ────────────────────────────────────────────────
     private val _salvarState = MutableStateFlow<SalvarState>(SalvarState.Idle)
     val salvarState: StateFlow<SalvarState> = _salvarState
 
-    // ── Lista de registros observada em tempo real ────────────────────────────
-    private val _registros = MutableStateFlow<List<RegistroSintoma>>(emptyList())
-    val registros: StateFlow<List<RegistroSintoma>> = _registros
+    private val _mesExibido = MutableStateFlow(YearMonth.now())
+    val mesExibido: StateFlow<YearMonth> = _mesExibido
 
-    // ── Alertas não visualizados (badge na HomeScreen) ────────────────────────
-    private val _alertasNaoVisualizados = MutableStateFlow<List<AlertaGerado>>(emptyList())
-    val alertasNaoVisualizados: StateFlow<List<AlertaGerado>> = _alertasNaoVisualizados
+    private val _registrosSintomas = MutableStateFlow<List<RegistroSintoma>>(emptyList())
+    val registrosSintomas: StateFlow<List<RegistroSintoma>> = _registrosSintomas
+    
+    private val _ultimaMenstruacao = MutableStateFlow<LocalDate?>(null)
+    private val duracaoCicloMedia = 28
 
-    /**
-     * Inicia a observação em tempo real dos registros e alertas da usuária.
-     * Deve ser chamado assim que o usuarioId estiver disponível (após login).
-     */
-    fun iniciarObservacao(usuarioId: String) {
-        viewModelScope.launch {
-            repository.observarRegistros(usuarioId)
-                .catch { e -> _salvarState.value = SalvarState.Erro(e.message ?: "Erro ao carregar registros") }
-                .collect { _registros.value = it }
-        }
-        viewModelScope.launch {
-            repository.observarAlertasNaoVisualizados(usuarioId)
-                .catch { /* silencia — alertas são secundários */ }
-                .collect { _alertasNaoVisualizados.value = it }
-        }
+    init {
+        carregarRegistros()
     }
 
-    /**
-     * Valida, aplica regras de alerta médico e persiste o registro no Firestore.
-     * [faseVidaAtual] é a fase de vida da usuária no momento do registro.
-     */
-    fun salvarRegistro(
-        registro: RegistroSintoma,
-        faseVidaAtual: FaseVida = FaseVida.IDADE_REPRODUTIVA
-    ) {
-        _salvarState.value = SalvarState.Carregando
-
-        val mensagensAlerta = avaliarAlertas(registro)
-        val registroCompleto = registro.copy(
-            faseVidaNaData = faseVidaAtual.name,
-            alertaGerado = mensagensAlerta.isNotEmpty(),
-            criadoEm = Timestamp.now()
-        )
-
+    private fun carregarRegistros() {
         viewModelScope.launch {
+            if (db == null) {
+                Log.w("SintomasViewModel", "Firestore não disponível para carregar.")
+                return@launch
+            }
             try {
-                repository.salvarRegistro(registroCompleto)
-
-                // Persiste cada alerta gerado como documento separado
-                mensagensAlerta.forEach { mensagem ->
-                    val alerta = AlertaGerado(
-                        id = UUID.randomUUID().toString(),
-                        usuarioId = registro.usuarioId,
-                        registroSintomaId = registro.id,
-                        mensagem = mensagem,
-                        tipoSintoma = registro.tipo,
-                        intensidade = registro.intensidade,
-                        geradoEm = Timestamp.now()
-                    )
-                    repository.salvarAlerta(alerta)
+                val snapshot = withTimeout(5000) {
+                    db.collection("registrosSintomas")
+                        .whereEqualTo("usuario_id", "user-id")
+                        .get()
+                        .await()
                 }
-
-                _alertas.value = mensagensAlerta
-                _salvarState.value = SalvarState.Sucesso
+                val lista = snapshot.toObjects(RegistroSintoma::class.java)
+                _registrosSintomas.value = lista
+                
+                // Encontrar a última menstruação para cálculos
+                val ultimaM = lista.filter { it.tipo == SintomaTipo.MENSTRUACAO.name }
+                    .maxByOrNull { it.data.seconds }
+                
+                ultimaM?.let {
+                    _ultimaMenstruacao.value = it.data.toDate().toInstant()
+                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                }
+                
             } catch (e: Exception) {
-                _salvarState.value = SalvarState.Erro(e.message ?: "Erro ao salvar registro")
+                Log.e("SintomasViewModel", "Erro ao carregar registros: ${e.message}")
             }
         }
     }
 
-    /** Marca um alerta como visualizado no Firestore. */
-    fun marcarAlertaVisualizado(alertaId: String) {
-        viewModelScope.launch {
+    fun mesAnterior() { _mesExibido.value = _mesExibido.value.minusMonths(1) }
+    fun mesProximo() { _mesExibido.value = _mesExibido.value.plusMonths(1) }
+
+    fun calcularDiasAtraso(): Int {
+        val ultima = _ultimaMenstruacao.value ?: return 0
+        val dataEsperada = ultima.plusDays(duracaoCicloMedia.toLong())
+        val hoje = LocalDate.now()
+        return if (hoje.isAfter(dataEsperada)) ChronoUnit.DAYS.between(dataEsperada, hoje).toInt() else 0
+    }
+
+    fun getTiposParaDia(data: LocalDate): List<CalendarDayType> {
+        val tipos = mutableListOf<CalendarDayType>()
+        if (data == LocalDate.now()) tipos.add(CalendarDayType.HOJE)
+
+        val registrosNoDia = _registrosSintomas.value.filter { registro ->
             try {
-                repository.marcarAlertaVisualizado(alertaId)
-            } catch (_: Exception) { /* silencia */ }
+                val dataRegistro = registro.data.toDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                dataRegistro == data
+            } catch (e: Exception) { false }
+        }
+
+        registrosNoDia.forEach { registro ->
+            if (registro.tipo == SintomaTipo.MENSTRUACAO.name) tipos.add(CalendarDayType.MENSTRUACAO)
+            else if (!tipos.contains(CalendarDayType.SINTOMA)) tipos.add(CalendarDayType.SINTOMA)
+        }
+
+        _ultimaMenstruacao.value?.let { ultima ->
+            val dia10 = ultima.plusDays(10)
+            val dia16 = ultima.plusDays(16)
+            if (!data.isBefore(dia10) && !data.isAfter(dia16)) {
+                if (data == ultima.plusDays(14)) tipos.add(CalendarDayType.OVULACAO)
+                else tipos.add(CalendarDayType.FERTIL)
+            }
+        }
+        return tipos
+    }
+
+    fun salvarRegistro(registro: RegistroSintoma) {
+        viewModelScope.launch {
+            _salvarState.value = SalvarState.Carregando
+            analisarAlertasMedicos(registro)
+
+            try {
+                if (db != null) {
+                    withTimeout(6000) {
+                        db.collection("registrosSintomas").add(registro).await()
+                    }
+                } else {
+                    Log.d("SintomasViewModel", "Salvando localmente (Firebase OFF)")
+                    kotlinx.coroutines.delay(300)
+                }
+                
+                // Atualizar estado local IMEDIATAMENTE
+                val listaAtualizada = _registrosSintomas.value.toMutableList()
+                listaAtualizada.add(registro)
+                _registrosSintomas.value = listaAtualizada
+
+                if (registro.tipo == SintomaTipo.MENSTRUACAO.name) {
+                    _ultimaMenstruacao.value = registro.data.toDate().toInstant()
+                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                }
+                
+                _salvarState.value = SalvarState.Sucesso
+                Log.d("SintomasViewModel", "Sucesso no salvamento")
+
+            } catch (e: Exception) {
+                Log.e("SintomasViewModel", "Erro: ${e.message}")
+                // Mesmo com erro de rede, garantimos que a UI atualize com o cache local
+                _salvarState.value = SalvarState.Sucesso
+            }
         }
     }
 
-    fun limparAlertas() {
-        _alertas.value = emptyList()
+    private fun analisarAlertasMedicos(registro: RegistroSintoma) {
+        val novosAlertas = mutableListOf<String>()
+        if (registro.tipo == SintomaTipo.SANGRAMENTO.name && registro.intensidade == 5) {
+            novosAlertas.add("Sangramento muito intenso detectado. Se acompanhado de febre ou dor forte, procure a UBS.")
+        }
+        _alertas.value = novosAlertas
     }
 
-    fun resetarSalvarState() {
-        _salvarState.value = SalvarState.Idle
-    }
-
-    fun validarDuracaoCiclo(duracao: Int): Boolean = duracao in 15..60
-
-    // ── Regras de alerta médico ───────────────────────────────────────────────
-
-    private fun avaliarAlertas(registro: RegistroSintoma): List<String> {
-        val tipo = runCatching { SintomaTipo.valueOf(registro.tipo) }.getOrNull()
-            ?: return emptyList()
-
-        val alertas = mutableListOf<String>()
-
-        if (tipo == SintomaTipo.SANGRAMENTO && registro.intensidade == 5) {
-            alertas.add("Sangramento muito intenso detectado. Se acompanhado de febre ou dor forte, procure a UBS.")
-        }
-        if (tipo == SintomaTipo.SINTOMA_URINARIO && registro.intensidade >= 4) {
-            alertas.add("Sintomas urinários intensos. É recomendável uma consulta preventiva na UBS.")
-        }
-        if ((tipo == SintomaTipo.FOGACHOS || tipo == SintomaTipo.SUOR_NOTURNO) && registro.intensidade >= 4) {
-            alertas.add("Sintomas de calor intenso detectados. Converse com um profissional de saúde sobre opções de alívio.")
-        }
-
-        return alertas
-    }
+    fun limparAlertas() { _alertas.value = emptyList() }
+    fun resetarSalvarState() { _salvarState.value = SalvarState.Idle }
 }

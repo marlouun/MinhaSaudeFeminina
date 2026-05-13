@@ -11,12 +11,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,10 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.BorderStroke
 import com.example.minhasaudefeminina.model.RegistroSintoma
 import com.example.minhasaudefeminina.model.SintomaTipo
-import com.example.minhasaudefeminina.ui.theme.BackgroundFeminino
-import com.example.minhasaudefeminina.ui.theme.RosaClaro
-import com.example.minhasaudefeminina.ui.theme.RosaPrimario
-import com.example.minhasaudefeminina.ui.theme.RosaSecundario
+import com.example.minhasaudefeminina.ui.theme.*
 import com.example.minhasaudefeminina.viewmodel.SalvarState
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
 import com.google.firebase.Timestamp
@@ -45,7 +46,18 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
     val salvarState by viewModel.salvarState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Exibe alertas médicos via Snackbar
+    val sintomas = listOf(
+        SintomaUI(SintomaTipo.MENSTRUACAO, Icons.Default.Bloodtype, RosaPrimario),
+        SintomaUI(SintomaTipo.COLICA, Icons.Default.SentimentDissatisfied, Color(0xFFFFA726)),
+        SintomaUI(SintomaTipo.CORRIMENTO, Icons.Default.WaterDrop, Color(0xFF42A5F5)),
+        SintomaUI(SintomaTipo.SANGRAMENTO, Icons.Default.Adjust, Color(0xFFEF5350)),
+        SintomaUI(SintomaTipo.SINTOMA_URINARIO, Icons.Default.Whatshot, Color(0xFFFF7043)),
+        SintomaUI(SintomaTipo.HUMOR_TPM, Icons.Default.Favorite, Color(0xFF7E57C2)),
+        SintomaUI(SintomaTipo.FOGACHOS, Icons.Default.Thermostat, Color(0xFFEC407A)),
+        SintomaUI(SintomaTipo.SUOR_NOTURNO, Icons.Default.Nightlight, Color(0xFF5C6BC0)),
+        SintomaUI(SintomaTipo.OUTRO, Icons.Default.Description, Color(0xFF78909C))
+    )
+
     LaunchedEffect(alertas) {
         if (alertas.isNotEmpty()) {
             snackbarHostState.showSnackbar(alertas.joinToString("\n"))
@@ -53,27 +65,19 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
         }
     }
 
-    // Reage ao resultado do salvamento
     LaunchedEffect(salvarState) {
-        when (val state = salvarState) {
-            is SalvarState.Sucesso -> {
-                snackbarHostState.showSnackbar("Registro salvo com sucesso!")
-                sintomaSelecionado = null
-                intensidade = 3
-                notas = ""
-                viewModel.resetarSalvarState()
-            }
-            is SalvarState.Erro -> {
-                snackbarHostState.showSnackbar("Erro ao salvar: ${state.mensagem}")
-                viewModel.resetarSalvarState()
-            }
-            else -> Unit
+        if (salvarState is SalvarState.Sucesso) {
+            snackbarHostState.showSnackbar("Registro salvo com sucesso!")
+            sintomaSelecionado = null
+            intensidade = 3
+            notas = ""
+            viewModel.resetarSalvarState()
         }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = BackgroundFeminino,
+        containerColor = Color.White
     ) { padding ->
         Column(
             modifier = Modifier
@@ -84,59 +88,67 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Registrar Sintoma",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = RosaPrimario,
-                modifier = Modifier.padding(bottom = 20.dp)
+                text = "Data",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.align(Alignment.Start)
             )
-
-            // Campo Data (somente leitura — usa a data atual)
             OutlinedTextField(
                 value = dataFormatada,
                 onValueChange = { },
-                label = { Text("Data do Registro") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 readOnly = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RosaPrimario,
-                    unfocusedBorderColor = RosaClaro
-                )
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = RosaClaro)
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Como você está se sentindo?",
-                fontSize = 16.sp,
-                color = RosaSecundario,
+                text = "Tipo de Sintoma",
+                fontSize = 14.sp,
+                color = Color.Gray,
                 modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
             )
 
-            // Grade de Sintomas
-            Box(modifier = Modifier.height(250.dp)) {
+            // Symptom Grid
+            Box(modifier = Modifier.height(350.dp)) {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    columns = GridCells.Fixed(3),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(SintomaTipo.entries) { sintoma ->
-                        val isSelected = sintomaSelecionado == sintoma
+                    items(sintomas) { item ->
+                        val isSelected = sintomaSelecionado == item.tipo
                         Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { sintomaSelecionado = sintoma },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) RosaSecundario else Color.White,
-                            border = BorderStroke(1.dp, RosaClaro)
+                                .aspectRatio(1f)
+                                .clickable { sintomaSelecionado = item.tipo },
+                            shape = RoundedCornerShape(15.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, if (isSelected) RosaSecundario else Color(0xFFEEEEEE)),
+                            shadowElevation = if (isSelected) 4.dp else 0.dp
                         ) {
-                            Text(
-                                text = sintoma.label,
-                                modifier = Modifier.padding(12.dp),
-                                textAlign = TextAlign.Center,
-                                color = if (isSelected) Color.White else Color.Black,
-                                fontSize = 14.sp
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Icon(
+                                    item.icone,
+                                    null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (isSelected) item.cor else item.cor.copy(alpha = 0.5f)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    item.tipo.label,
+                                    fontSize = 10.sp,
+                                    textAlign = TextAlign.Center,
+                                    color = if (isSelected) Color.Black else Color.Gray,
+                                    lineHeight = 12.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -144,11 +156,11 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Intensidade
+            // Intensity
             Text(
-                text = "Intensidade: $intensidade",
-                fontSize = 16.sp,
-                color = RosaSecundario,
+                text = "Intensidade: $intensidade/5",
+                fontSize = 14.sp,
+                color = Color.Gray,
                 modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
             )
             Row(
@@ -156,19 +168,20 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 (1..5).forEach { num ->
-                    val isSelected = intensidade == num
+                    val isHighlighted = num <= intensidade
                     Box(
                         modifier = Modifier
-                            .size(45.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) RosaPrimario else Color.White)
-                            .border(1.dp, RosaClaro, CircleShape)
+                            .weight(1f)
+                            .height(40.dp)
+                            .padding(horizontal = 4.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isHighlighted) PinkToday else Color(0xFFF5F5F5))
                             .clickable { intensidade = num },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = num.toString(),
-                            color = if (isSelected) Color.White else RosaPrimario,
+                            color = if (isHighlighted) Color.White else Color.Gray,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -177,57 +190,30 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Notas
+            Text(
+                text = "Notas (opcional)",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.align(Alignment.Start)
+            )
             OutlinedTextField(
                 value = notas,
                 onValueChange = { notas = it },
-                label = { Text("Notas Opcionais") },
-                placeholder = { Text("Descreva como se sente...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RosaPrimario,
-                    unfocusedBorderColor = RosaClaro
-                )
+                placeholder = { Text("Descreva como se sente...", fontSize = 14.sp) },
+                modifier = Modifier.fillMaxWidth().height(100.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = RosaClaro)
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(30.dp))
 
-            // Aviso médico obrigatório
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4F4)),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, RosaPrimario)
-            ) {
-                Row(modifier = Modifier.padding(15.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .width(5.dp)
-                            .fillMaxHeight()
-                            .background(RosaPrimario)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Essas informações não substituem avaliação médica. Procure sempre a UBS.",
-                        color = RosaPrimario,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(25.dp))
-
-            // Botão Salvar
             val carregando = salvarState is SalvarState.Carregando
             Button(
                 onClick = {
                     sintomaSelecionado?.let { tipo ->
                         viewModel.salvarRegistro(
                             RegistroSintoma(
-                                usuarioId = "user-id", // substituir pelo UID do Firebase Auth
+                                usuario_id = "user-id",
                                 data = Timestamp.now(),
                                 tipo = tipo.name,
                                 intensidade = intensidade,
@@ -237,22 +223,30 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                     }
                 },
                 enabled = sintomaSelecionado != null && !carregando,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RosaPrimario),
-                shape = RoundedCornerShape(30.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = RosaClaro),
+                shape = RoundedCornerShape(15.dp)
             ) {
                 if (carregando) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Salvar Registro", fontSize = 18.sp, color = Color.White)
+                    Text("Salvar Registro", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold)
                 }
+            }
+
+            Spacer(modifier = Modifier.height(15.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⚠", fontSize = 12.sp, color = Color(0xFFFBC02D))
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "Essas informações não substituem avaliação médica. Procure sempre a UBS.",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
             }
         }
     }
 }
+
+data class SintomaUI(val tipo: SintomaTipo, val icone: ImageVector, val cor: Color)

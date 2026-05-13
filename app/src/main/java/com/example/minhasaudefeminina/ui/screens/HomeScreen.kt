@@ -2,7 +2,6 @@ package com.example.minhasaudefeminina.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,26 +23,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.minhasaudefeminina.R
 import com.example.minhasaudefeminina.ui.theme.*
+import com.example.minhasaudefeminina.viewmodel.CalendarDayType
+import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.*
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val scrollState = rememberScrollState()
+    val mesExibido by viewModel.mesExibido.collectAsState()
+    val registros by viewModel.registrosSintomas.collectAsState()
+    val diasAtraso = viewModel.calcularDiasAtraso()
     
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(LightPinkBackground)
-            .verticalScroll(scrollState)
+            .verticalScroll(scrollState),
     ) {
         // Top Logo Header
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White,
-            shadowElevation = 1.dp
+            shadowElevation = 1.dp,
         ) {
             Row(
                 modifier = Modifier.padding(15.dp),
@@ -61,7 +65,7 @@ fun HomeScreen() {
 
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "📅 Calendario Menstrual",
+                text = "📅 Calendário Menstrual",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
@@ -75,8 +79,14 @@ fun HomeScreen() {
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    CalendarHeader()
-                    CalendarGrid()
+                    CalendarHeader(
+                        mesExibido = mesExibido,
+                        onAnterior = { viewModel.mesAnterior() },
+                        onProximo = { viewModel.mesProximo() }
+                    )
+                    CalendarGrid(mesExibido) { data ->
+                        viewModel.getTiposParaDia(data)
+                    }
                 }
             }
 
@@ -85,7 +95,7 @@ fun HomeScreen() {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Delay Calculator Card
+            // Delay Calculator Card (Functional)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(15.dp)
@@ -117,7 +127,8 @@ fun HomeScreen() {
                                 fontSize = 16.sp
                             )
                             Text(
-                                "Atraso maior que 15 dias? Saiba quando fazer o teste",
+                                if (diasAtraso > 0) "Atraso de $diasAtraso dias! Procure a UBS." 
+                                else "Seu ciclo está em dia.",
                                 color = Color.White,
                                 fontSize = 12.sp
                             )
@@ -128,21 +139,21 @@ fun HomeScreen() {
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            Text("Mais informacoes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Mais informações", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 InfoCard(
                     modifier = Modifier.weight(1f),
-                    title = "Proxima menstruacao",
-                    value = "--",
-                    iconId = R.drawable.ic_home // Placeholder
+                    title = "Próxima menstruação",
+                    value = if (diasAtraso > 0) "Atrasada" else "Em breve",
+                    iconId = R.drawable.ic_home
                 )
                 InfoCard(
                     modifier = Modifier.weight(1f),
                     title = "Registros de Sintomas",
-                    value = "0",
-                    iconId = R.drawable.ic_favorite // Placeholder
+                    value = registros.size.toString(),
+                    iconId = R.drawable.ic_favorite
                 )
             }
 
@@ -158,38 +169,44 @@ fun HomeScreen() {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("⚠", fontSize = 18.sp, modifier = Modifier.padding(end = 10.dp))
                     Text(
-                        text = "Essas informacoes nao substituem avaliacao medica. Procure sempre a UBS para confirmacao e acompanhamento.",
+                        text = "Essas informações não substituem avaliação médica. Procure sempre a UBS para confirmação e acompanhamento.",
                         fontSize = 12.sp,
                         color = Color(0xFF795548)
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(100.dp)) // Extra space for FAB
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
 
 @Composable
-fun CalendarHeader() {
+fun CalendarHeader(mesExibido: YearMonth, onAnterior: () -> Unit, onProximo: () -> Unit) {
+    val nomeMes = mesExibido.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
+        .replaceFirstChar { it.uppercase() }
+    
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = {}) { Icon(Icons.Default.ChevronLeft, null) }
-        Text("Maio 2026", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        IconButton(onClick = {}) { Icon(Icons.Default.ChevronRight, null) }
+        IconButton(onClick = onAnterior) { Icon(Icons.Default.ChevronLeft, null) }
+        Text("$nomeMes ${mesExibido.year}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        IconButton(onClick = onProximo) { Icon(Icons.Default.ChevronRight, null) }
     }
 }
 
 @Composable
-fun CalendarGrid() {
-    val days = listOf("DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB")
-    
+fun CalendarGrid(mesExibido: YearMonth, getTipos: (LocalDate) -> List<CalendarDayType>) {
+    val daysOfWeek = listOf("DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB")
+    val firstDayOfMonth = mesExibido.atDay(1)
+    val lastDayOfMonth = mesExibido.atEndOfMonth()
+    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // 0 = Sunday
+
     Column {
         Row(modifier = Modifier.fillMaxWidth()) {
-            days.forEach { day ->
+            daysOfWeek.forEach { day ->
                 Text(
                     text = day,
                     modifier = Modifier.weight(1f),
@@ -202,48 +219,19 @@ fun CalendarGrid() {
         
         Spacer(modifier = Modifier.height(10.dp))
         
-        // Mock calendar rows
-        val weeks = listOf(
-            listOf("", "", "", "", "", "1", "2"),
-            listOf("3", "4", "5", "6", "7", "8", "9"),
-            listOf("10", "11", "12", "13", "14", "15", "16"),
-            listOf("17", "18", "19", "20", "21", "22", "23"),
-            listOf("24", "25", "26", "27", "28", "29", "30"),
-            listOf("31", "", "", "", "", "", "")
-        )
-        
-        weeks.forEach { week ->
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                week.forEach { day ->
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (day.isNotEmpty()) {
-                            val isToday = day == "12"
-                            val isSelected = day == "25"
+        var currentDay = 1 - firstDayOfWeek
+        while (currentDay <= lastDayOfMonth.dayOfMonth) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                for (i in 0..6) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (currentDay in 1..lastDayOfMonth.dayOfMonth) {
+                            val data = mesExibido.atDay(currentDay)
+                            val tipos = getTipos(data)
                             
-                            Box(
-                                modifier = Modifier
-                                    .size(35.dp)
-                                    .background(
-                                        color = when {
-                                            isToday -> PinkToday
-                                            isSelected -> PurpleSelected
-                                            else -> Color.Transparent
-                                        },
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = day,
-                                    fontSize = 14.sp,
-                                    color = if (isToday || isSelected) Color.White else Color.Black
-                                )
-                            }
+                            DayCell(day = currentDay.toString(), tipos = tipos)
                         }
                     }
+                    currentDay++
                 }
             }
         }
@@ -251,11 +239,63 @@ fun CalendarGrid() {
 }
 
 @Composable
+fun DayCell(day: String, tipos: List<CalendarDayType>) {
+    val isHoje = tipos.contains(CalendarDayType.HOJE)
+    val isMenstruacao = tipos.contains(CalendarDayType.MENSTRUACAO)
+    val isFertil = tipos.contains(CalendarDayType.FERTIL)
+    val isOvulacao = tipos.contains(CalendarDayType.OVULACAO)
+    val hasSintoma = tipos.contains(CalendarDayType.SINTOMA)
+    val isSelected = tipos.contains(CalendarDayType.SELECIONADO)
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(35.dp)
+                .background(
+                    color = when {
+                        isSelected -> PurpleSelected
+                        isHoje -> PinkToday
+                        isMenstruacao -> RosaPrimario
+                        else -> Color.Transparent
+                    },
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = day,
+                fontSize = 14.sp,
+                color = if (isSelected || isHoje || isMenstruacao) Color.White else Color.Black
+            )
+        }
+        
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.height(6.dp)
+        ) {
+            if (isFertil) IndicatorDot(YellowFertil)
+            if (isOvulacao) IndicatorDot(GreenOvulacao)
+            if (hasSintoma) IndicatorDot(RedSintoma)
+        }
+    }
+}
+
+@Composable
+fun IndicatorDot(color: Color) {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 1.dp)
+            .size(4.dp)
+            .background(color, CircleShape)
+    )
+}
+
+@Composable
 fun CalendarLegend() {
     val items = listOf(
-        Pair("Menstruacao", RosaPrimario),
-        Pair("Fertil", YellowFertil),
-        Pair("Ovulacao", GreenOvulacao),
+        Pair("Menstruação", RosaPrimario),
+        Pair("Fértil", YellowFertil),
+        Pair("Ovulação", GreenOvulacao),
         Pair("Eventos", RosaSecundario),
         Pair("Sintomas", RedSintoma),
         Pair("Hoje", PinkToday),
@@ -263,7 +303,7 @@ fun CalendarLegend() {
     )
     
     Column {
-        val rows = items.chunked(5)
+        val rows = items.chunked(4)
         rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
