@@ -1,9 +1,11 @@
 package com.example.minhasaudefeminina.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.minhasaudefeminina.ui.theme.BackgroundFeminino
@@ -26,6 +29,12 @@ fun LoginScreen(viewModel: AuthViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    // Validações simples para ativar/desativar o botão
+    val isEmailValid = email.contains("@") && email.contains(".")
+    val isPasswordValid = password.length >= 6
+    val isFormValid = isEmailValid && isPasswordValid
 
     val authState by viewModel.authState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -66,13 +75,15 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email") },
+                placeholder = { Text("exemplo@email.com") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RosaPrimario,
                     unfocusedBorderColor = RosaClaro
-                )
+                ),
+                isError = email.isNotEmpty() && !isEmailValid
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -83,13 +94,29 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 label = { Text("Senha") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                visualTransformation = PasswordVisualTransformation(),
+                // Lógica para mostrar ou esconder a senha
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = "Toggle password visibility", tint = RosaPrimario)
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RosaPrimario,
                     unfocusedBorderColor = RosaClaro
                 )
             )
+
+            if (password.isNotEmpty() && !isPasswordValid) {
+                Text(
+                    text = "A senha deve ter pelo menos 6 caracteres",
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    modifier = Modifier.align(Alignment.Start).padding(start = 8.dp, top = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -100,8 +127,12 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     else viewModel.login(email, password)
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(containerColor = RosaPrimario),
+                // O botão só funciona se o formulário estiver validado
+                enabled = !isLoading && isFormValid,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RosaPrimario,
+                    disabledContainerColor = RosaClaro.copy(alpha = 0.5f)
+                ),
                 shape = RoundedCornerShape(28.dp)
             ) {
                 if (isLoading) {
