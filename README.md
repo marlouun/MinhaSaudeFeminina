@@ -9,7 +9,6 @@
 
 **Aplicativo Android de saúde feminina com foco em educação, acompanhamento menstrual e suporte à saúde da mulher**
 
-[Sobre](#-sobre) • [Funcionalidades](#-funcionalidades) • [Tecnologias](#-tecnologias) • [Instalação](#-instalação) • [Estrutura](#-estrutura-do-projeto) • [Contribuir](#-como-contribuir)
 
 </div>
 
