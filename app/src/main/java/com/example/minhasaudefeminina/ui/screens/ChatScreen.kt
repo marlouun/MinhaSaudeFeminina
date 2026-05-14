@@ -1,5 +1,6 @@
 package com.example.minhasaudefeminina.ui.screens
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,13 +30,13 @@ import java.util.*
 fun ChatScreen(viewModel: ChatViewModel) {
     var pergunta by remember { mutableStateOf("") }
     val messages by viewModel.messages.collectAsState()
-    val sugestoes = listOf("É normal isso?", "Gravidez", "Papanicolau", "Corrimento", "Cólica")
+    val isTyping by viewModel.isTyping.collectAsState()
+    val sugestoes = listOf("É normal isso?", "Cólica forte", "Papanicolau", "Corrimento", "Contracepção", "IST/DST", "TPM")
     val listState = rememberLazyListState()
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+    LaunchedEffect(messages.size, isTyping) {
+        val total = messages.size + if (isTyping) 1 else 0
+        if (total > 0) listState.animateScrollToItem(total - 1)
     }
 
     Column(
@@ -70,6 +71,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             items(messages) { msg ->
                 ChatBubble(msg)
+            }
+            if (isTyping) {
+                item {
+                    TypingIndicator()
+                }
             }
         }
 
@@ -143,7 +149,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 Spacer(modifier = Modifier.height(10.dp))
                 
                 Text(
-                    text = "Digite \"É normal isso?\" para iniciar uma conversa automática",
+                    text = "Perguntas anônimas e seguras • Não substitui consulta médica",
                     fontSize = 11.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center,
@@ -190,5 +196,46 @@ fun ChatBubble(message: MensagemChat) {
             color = Color.Gray,
             modifier = Modifier.padding(top = 4.dp, start = 5.dp, end = 5.dp)
         )
+    }
+}
+
+@Composable
+fun TypingIndicator() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Card(
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(3) { index ->
+                    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "dot$index")
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1f,
+                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                            animation = androidx.compose.animation.core.tween(
+                                durationMillis = 500,
+                                delayMillis = index * 150
+                            ),
+                            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                        ),
+                        label = "alpha$index"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(RosaSecundario.copy(alpha = alpha), CircleShape)
+                    )
+                }
+            }
+        }
     }
 }

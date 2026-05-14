@@ -36,40 +36,73 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
     val mesExibido by viewModel.mesExibido.collectAsState()
     val registros by viewModel.registrosSintomas.collectAsState()
     val diasAtraso = viewModel.calcularDiasAtraso()
-    
+    val diasProximoCiclo = viewModel.calcularDiasProximoCiclo()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(LightPinkBackground)
             .verticalScroll(scrollState),
     ) {
-        // Top Logo Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            shadowElevation = 1.dp,
+        // Header com gradiente
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(RosaPrimario, RosaSecundario)
+                    )
+                )
+                .padding(horizontal = 20.dp, vertical = 18.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(15.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
+            Column {
                 Text(
                     text = "♀ Minha Saúde Feminina",
                     fontSize = 20.sp,
-                    color = RosaPrimario,
+                    color = Color.White,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Acompanhe seu ciclo com cuidado",
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
 
         Column(modifier = Modifier.padding(16.dp)) {
+
+            // Cards de resumo rápido
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Próxima menstruação",
+                    value = when {
+                        diasAtraso > 0 -> "Atrasada $diasAtraso d"
+                        diasProximoCiclo == 0 -> "Hoje"
+                        else -> "Em $diasProximoCiclo dias"
+                    },
+                    valueColor = if (diasAtraso > 0) Color(0xFFE53935) else RosaPrimario,
+                    background = Color.White
+                )
+                SummaryCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Registros",
+                    value = registros.size.toString(),
+                    valueColor = RosaSecundario,
+                    background = Color.White
+                )
+            }
+
             Text(
                 text = "📅 Calendário Menstrual",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
-                modifier = Modifier.padding(vertical = 10.dp)
+                modifier = Modifier.padding(bottom = 10.dp)
             )
 
             // Calendar Card
@@ -95,7 +128,7 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Delay Calculator Card (Functional)
+            // Calculadora de Atraso
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(15.dp)
@@ -121,14 +154,17 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
                         Spacer(modifier = Modifier.width(15.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Calculadora de Atraso Menstrual",
+                                "Calculadora de Atraso",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                             Text(
-                                if (diasAtraso > 0) "Atraso de $diasAtraso dias! Procure a UBS." 
-                                else "Seu ciclo está em dia.",
+                                when {
+                                    diasAtraso > 0 -> "⚠ Atraso de $diasAtraso dias. Procure a UBS."
+                                    diasProximoCiclo <= 3 && diasProximoCiclo >= 0 -> "Menstruação prevista em breve."
+                                    else -> "Seu ciclo está em dia. ✓"
+                                },
                                 color = Color.White,
                                 fontSize = 12.sp
                             )
@@ -139,6 +175,7 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
             Text("Mais informações", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -146,7 +183,7 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
                 InfoCard(
                     modifier = Modifier.weight(1f),
                     title = "Próxima menstruação",
-                    value = if (diasAtraso > 0) "Atrasada" else "Em breve",
+                    value = if (diasAtraso > 0) "Atrasada" else if (diasProximoCiclo == 0) "Hoje" else "Em $diasProximoCiclo dias",
                     iconId = R.drawable.ic_home
                 )
                 InfoCard(
@@ -159,7 +196,7 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Medical Disclaimer
+            // Aviso médico
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
@@ -175,8 +212,30 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+}
+
+@Composable
+fun SummaryCard(
+    modifier: Modifier,
+    label: String,
+    value: String,
+    valueColor: Color,
+    background: Color
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = background),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(label, fontSize = 11.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = valueColor)
         }
     }
 }
@@ -185,7 +244,7 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
 fun CalendarHeader(mesExibido: YearMonth, onAnterior: () -> Unit, onProximo: () -> Unit) {
     val nomeMes = mesExibido.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
         .replaceFirstChar { it.uppercase() }
-    
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -202,7 +261,7 @@ fun CalendarGrid(mesExibido: YearMonth, getTipos: (LocalDate) -> List<CalendarDa
     val daysOfWeek = listOf("DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB")
     val firstDayOfMonth = mesExibido.atDay(1)
     val lastDayOfMonth = mesExibido.atEndOfMonth()
-    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // 0 = Sunday
+    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7
 
     Column {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -216,18 +275,19 @@ fun CalendarGrid(mesExibido: YearMonth, getTipos: (LocalDate) -> List<CalendarDa
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(10.dp))
-        
+
         var currentDay = 1 - firstDayOfWeek
         while (currentDay <= lastDayOfMonth.dayOfMonth) {
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)) {
                 for (i in 0..6) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         if (currentDay in 1..lastDayOfMonth.dayOfMonth) {
                             val data = mesExibido.atDay(currentDay)
                             val tipos = getTipos(data)
-                            
                             DayCell(day = currentDay.toString(), tipos = tipos)
                         }
                     }
@@ -268,7 +328,7 @@ fun DayCell(day: String, tipos: List<CalendarDayType>) {
                 color = if (isSelected || isHoje || isMenstruacao) Color.White else Color.Black
             )
         }
-        
+
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.height(6.dp)
@@ -301,7 +361,7 @@ fun CalendarLegend() {
         Pair("Hoje", PinkToday),
         Pair("Selecionado", PurpleSelected)
     )
-    
+
     Column {
         val rows = items.chunked(4)
         rows.forEach { row ->
@@ -311,7 +371,9 @@ fun CalendarLegend() {
             ) {
                 row.forEach { (label, color) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(10.dp).background(color, CircleShape))
+                        Box(modifier = Modifier
+                            .size(10.dp)
+                            .background(color, CircleShape))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(label, fontSize = 10.sp, color = Color.Gray)
                     }

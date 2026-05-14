@@ -142,8 +142,8 @@ fun PerfilScreen(viewModel: PerfilViewModel) {
 
             Spacer(modifier = Modifier.height(15.dp))
 
-            // Gestacao
-            SectionCard(title = "Gestacao", icon = Icons.Default.ChildCare) {
+            // Gestação
+            SectionCard(title = "Gestação", icon = Icons.Default.ChildCare) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Estou gestante", fontWeight = FontWeight.Bold)
@@ -173,14 +173,14 @@ fun PerfilScreen(viewModel: PerfilViewModel) {
             // Privacy Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.5f)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F3F3)),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Row(modifier = Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, null, modifier = Modifier.size(16.dp), tint = Color.Gray)
+                    Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp), tint = RosaSecundario)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        "Seus dados sao armazenados localmente no seu dispositivo. Sua privacidade e nossa prioridade (LGPD).",
+                        "Seus dados são armazenados com segurança. Sua privacidade é nossa prioridade (LGPD).",
                         fontSize = 11.sp,
                         color = Color.Gray
                     )
@@ -219,7 +219,7 @@ fun ExameField(label: String, value: String, onValueChange: (String) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(1f))
             if (value.isEmpty()) {
-                Text("Nao informado", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.background(Color(0xFFEEEEEE), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                Text("Não informado", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.background(Color(0xFFEEEEEE), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
             }
         }
         Spacer(modifier = Modifier.height(8.dp))

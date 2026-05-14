@@ -224,12 +224,17 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                 },
                 enabled = sintomaSelecionado != null && !carregando,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RosaClaro),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RosaPrimario,
+                    disabledContainerColor = RosaClaro.copy(alpha = 0.5f)
+                ),
                 shape = RoundedCornerShape(15.dp)
             ) {
                 if (carregando) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
+                    Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Salvar Registro", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }

@@ -90,6 +90,13 @@ class SintomasViewModel : ViewModel() {
         return if (hoje.isAfter(dataEsperada)) ChronoUnit.DAYS.between(dataEsperada, hoje).toInt() else 0
     }
 
+    fun calcularDiasProximoCiclo(): Int {
+        val ultima = _ultimaMenstruacao.value ?: return -1
+        val dataEsperada = ultima.plusDays(duracaoCicloMedia.toLong())
+        val hoje = LocalDate.now()
+        return if (!hoje.isAfter(dataEsperada)) ChronoUnit.DAYS.between(hoje, dataEsperada).toInt() else 0
+    }
+
     fun getTiposParaDia(data: LocalDate): List<CalendarDayType> {
         val tipos = mutableListOf<CalendarDayType>()
         if (data == LocalDate.now()) tipos.add(CalendarDayType.HOJE)
@@ -155,9 +162,20 @@ class SintomasViewModel : ViewModel() {
 
     private fun analisarAlertasMedicos(registro: RegistroSintoma) {
         val novosAlertas = mutableListOf<String>()
-        if (registro.tipo == SintomaTipo.SANGRAMENTO.name && registro.intensidade == 5) {
-            novosAlertas.add("Sangramento muito intenso detectado. Se acompanhado de febre ou dor forte, procure a UBS.")
+
+        if (registro.tipo == SintomaTipo.SANGRAMENTO.name && registro.intensidade >= 4) {
+            novosAlertas.add("⚠ Sangramento intenso registrado. Se acompanhado de febre ou dor forte, procure a UBS.")
         }
+        if (registro.tipo == SintomaTipo.COLICA.name && registro.intensidade == 5) {
+            novosAlertas.add("⚠ Cólica muito intensa. Se não melhorar com analgésico, procure atendimento médico.")
+        }
+        if (registro.tipo == SintomaTipo.FOGACHOS.name) {
+            novosAlertas.add("ℹ Fogachos frequentes podem indicar início do climatério. Converse com seu médico.")
+        }
+        if (registro.tipo == SintomaTipo.SINTOMA_URINARIO.name && registro.intensidade >= 3) {
+            novosAlertas.add("⚠ Sintomas urinários persistentes podem indicar infecção. Procure a UBS para exame de urina.")
+        }
+
         _alertas.value = novosAlertas
     }
 
