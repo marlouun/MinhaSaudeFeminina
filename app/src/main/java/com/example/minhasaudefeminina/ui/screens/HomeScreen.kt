@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -39,13 +41,14 @@ fun HomeScreen(viewModel: SintomasViewModel) {
     val registros by viewModel.registrosSintomas.collectAsState()
     var diaSelecionado by remember { mutableStateOf(LocalDate.now()) }
     var dragAmountTotal by remember { mutableFloatStateOf(0f) }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(LightPinkBackground)
     ) {
-        // --- HEADER ---
+        // --- HEADER (Fixo no topo) ---
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White,
@@ -61,9 +64,11 @@ fun HomeScreen(viewModel: SintomasViewModel) {
             }
         }
 
+        // --- CONTEÚDO COM SCROLL ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState) // Habilita o scroll vertical
                 .padding(16.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
@@ -120,29 +125,42 @@ fun HomeScreen(viewModel: SintomasViewModel) {
                     val daysInMonth = mesExibido.lengthOfMonth()
                     val emptyDays = firstDay.dayOfWeek.value % 7
 
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(7),
-                        modifier = Modifier.height(280.dp)
-                    ) {
-                        items(emptyDays) { Spacer(Modifier.size(40.dp)) }
-                        items((1..daysInMonth).toList()) { day ->
-                            val date = mesExibido.atDay(day)
-                            val types = viewModel.getTiposParaDia(date)
-                            val isSelected = diaSelecionado == date
-                            
-                            val symptomsForThisDay = registros.filter {
-                                try {
-                                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == date
-                                } catch (e: Exception) { false }
-                            }
+                    // Para evitar conflito de scroll, usamos uma Column manual em vez de LazyVerticalGrid dentro de scroll
+                    val totalSlots = emptyDays + daysInMonth
+                    val rows = (totalSlots + 6) / 7
+                    
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        for (row in 0 until rows) {
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                for (col in 0 until 7) {
+                                    val index = row * 7 + col
+                                    val dayNumber = index - emptyDays + 1
+                                    
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        if (dayNumber in 1..daysInMonth) {
+                                            val date = mesExibido.atDay(dayNumber)
+                                            val types = viewModel.getTiposParaDia(date)
+                                            val isSelected = diaSelecionado == date
+                                            
+                                            val symptomsForThisDay = registros.filter {
+                                                try {
+                                                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == date
+                                                } catch (e: Exception) { false }
+                                            }
 
-                            DayItem(
-                                day = day,
-                                types = types,
-                                isSelected = isSelected,
-                                symptoms = symptomsForThisDay,
-                                onClick = { diaSelecionado = date }
-                            )
+                                            DayItem(
+                                                day = dayNumber,
+                                                types = types,
+                                                isSelected = isSelected,
+                                                symptoms = symptomsForThisDay,
+                                                onClick = { diaSelecionado = date }
+                                            )
+                                        } else {
+                                            Spacer(Modifier.aspectRatio(1f))
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -150,12 +168,12 @@ fun HomeScreen(viewModel: SintomasViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- INFO SECTION (SINTOMAS DO DIA SELECIONADO) ---
+            // --- INFO SECTION ---
             Text("Sintomas registrados em ${diaSelecionado.dayOfMonth}/${diaSelecionado.monthValue}", fontWeight = FontWeight.Bold, color = RosaPrimario)
             
             val sintomasHoje = registros.filter { 
                 try {
-                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == diaSelecionado
+                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == diaSelecionado 
                 } catch (e: Exception) { false }
             }
 
@@ -192,6 +210,9 @@ fun HomeScreen(viewModel: SintomasViewModel) {
                 icon = Icons.Default.CalendarToday,
                 color = RosaClaro
             )
+            
+            // Espaço extra no final para o scroll não ficar colado na barra de navegação
+            Spacer(modifier = Modifier.height(30.dp))
         }
     }
 }
@@ -226,7 +247,6 @@ fun DayItem(
                 color = if (isSelected) PurpleSelected else Color.Black,
                 fontWeight = if (isSelected || types.contains(CalendarDayType.HOJE)) FontWeight.Bold else FontWeight.Normal
             )
-            // Color dots for each symptom
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 symptoms.take(3).forEach { symptom ->
                     Box(modifier = Modifier.size(4.dp).background(getSintomaColor(symptom.tipo), CircleShape))
