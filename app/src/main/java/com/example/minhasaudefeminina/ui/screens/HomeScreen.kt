@@ -1,59 +1,57 @@
 package com.example.minhasaudefeminina.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.minhasaudefeminina.R
+import com.example.minhasaudefeminina.model.SintomaTipo
 import com.example.minhasaudefeminina.ui.theme.*
 import com.example.minhasaudefeminina.viewmodel.CalendarDayType
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
+import java.time.Instant
 import java.time.LocalDate
-import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.*
 
 @Composable
-fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
-    val scrollState = rememberScrollState()
+fun HomeScreen(viewModel: SintomasViewModel) {
     val mesExibido by viewModel.mesExibido.collectAsState()
     val registros by viewModel.registrosSintomas.collectAsState()
-    val diasAtraso = viewModel.calcularDiasAtraso()
-    
+    var diaSelecionado by remember { mutableStateOf(LocalDate.now()) }
+    var dragAmountTotal by remember { mutableFloatStateOf(0f) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(LightPinkBackground)
-            .verticalScroll(scrollState),
     ) {
-        // Top Logo Header
+        // --- HEADER ---
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White,
-            shadowElevation = 1.dp,
+            shadowElevation = 2.dp
         ) {
-            Row(
-                modifier = Modifier.padding(15.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
+            Box(modifier = Modifier.padding(15.dp), contentAlignment = Alignment.Center) {
                 Text(
                     text = "♀ Minha Saúde Feminina",
                     fontSize = 20.sp,
@@ -63,289 +61,209 @@ fun HomeScreen(viewModel: SintomasViewModel = androidx.lifecycle.viewmodel.compo
             }
         }
 
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "📅 Calendário Menstrual",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(vertical = 10.dp)
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragEnd = {
+                            if (dragAmountTotal > 50) viewModel.mesAnterior()
+                            else if (dragAmountTotal < -50) viewModel.mesProximo()
+                            dragAmountTotal = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            dragAmountTotal += dragAmount.x
+                        }
+                    )
+                }
+        ) {
+            // --- CALENDAR HEADER ---
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { viewModel.mesAnterior() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Anterior", tint = RosaPrimario)
+                }
+                Text(
+                    text = "${mesExibido.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }} ${mesExibido.year}",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = RosaPrimario
+                )
+                IconButton(onClick = { viewModel.mesProximo() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, "Próximo", tint = RosaPrimario)
+                }
+            }
 
-            // Calendar Card
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // --- CALENDAR GRID ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    CalendarHeader(
-                        mesExibido = mesExibido,
-                        onAnterior = { viewModel.mesAnterior() },
-                        onProximo = { viewModel.mesProximo() }
-                    )
-                    CalendarGrid(mesExibido) { data ->
-                        viewModel.getTiposParaDia(data)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            CalendarLegend()
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Delay Calculator Card (Functional)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(15.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(Color(0xFFFFA500), Color(0xFFFF4500))
-                            )
-                        )
-                        .padding(20.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .border(1.dp, Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("🕒", fontSize = 20.sp)
+                Column(modifier = Modifier.padding(10.dp)) {
+                    // Days of week
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        listOf("D", "S", "T", "Q", "Q", "S", "S").forEach { day ->
+                            Text(day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 12.sp, color = Color.Gray)
                         }
-                        Spacer(modifier = Modifier.width(15.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Calculadora de Atraso Menstrual",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                if (diasAtraso > 0) "Atraso de $diasAtraso dias! Procure a UBS." 
-                                else "Seu ciclo está em dia.",
-                                color = Color.White,
-                                fontSize = 12.sp
-                            )
-                        }
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.White)
                     }
-                }
-            }
+                    
+                    val firstDay = mesExibido.atDay(1)
+                    val daysInMonth = mesExibido.lengthOfMonth()
+                    val emptyDays = firstDay.dayOfWeek.value % 7
 
-            Spacer(modifier = Modifier.height(20.dp))
-            Text("Mais informações", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                InfoCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Próxima menstruação",
-                    value = if (diasAtraso > 0) "Atrasada" else "Em breve",
-                    iconId = R.drawable.ic_home
-                )
-                InfoCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Registros de Sintomas",
-                    value = registros.size.toString(),
-                    iconId = R.drawable.ic_favorite
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Medical Disclaimer
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
-                shape = RoundedCornerShape(10.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F))
-            ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("⚠", fontSize = 18.sp, modifier = Modifier.padding(end = 10.dp))
-                    Text(
-                        text = "Essas informações não substituem avaliação médica. Procure sempre a UBS para confirmação e acompanhamento.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF795548)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(100.dp))
-        }
-    }
-}
-
-@Composable
-fun CalendarHeader(mesExibido: YearMonth, onAnterior: () -> Unit, onProximo: () -> Unit) {
-    val nomeMes = mesExibido.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
-        .replaceFirstChar { it.uppercase() }
-    
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onAnterior) { Icon(Icons.Default.ChevronLeft, null) }
-        Text("$nomeMes ${mesExibido.year}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        IconButton(onClick = onProximo) { Icon(Icons.Default.ChevronRight, null) }
-    }
-}
-
-@Composable
-fun CalendarGrid(mesExibido: YearMonth, getTipos: (LocalDate) -> List<CalendarDayType>) {
-    val daysOfWeek = listOf("DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB")
-    val firstDayOfMonth = mesExibido.atDay(1)
-    val lastDayOfMonth = mesExibido.atEndOfMonth()
-    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // 0 = Sunday
-
-    Column {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            daysOfWeek.forEach { day ->
-                Text(
-                    text = day,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    fontSize = 10.sp,
-                    color = Color.Gray
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(10.dp))
-        
-        var currentDay = 1 - firstDayOfWeek
-        while (currentDay <= lastDayOfMonth.dayOfMonth) {
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                for (i in 0..6) {
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        if (currentDay in 1..lastDayOfMonth.dayOfMonth) {
-                            val data = mesExibido.atDay(currentDay)
-                            val tipos = getTipos(data)
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(7),
+                        modifier = Modifier.height(280.dp)
+                    ) {
+                        items(emptyDays) { Spacer(Modifier.size(40.dp)) }
+                        items((1..daysInMonth).toList()) { day ->
+                            val date = mesExibido.atDay(day)
+                            val types = viewModel.getTiposParaDia(date)
+                            val isSelected = diaSelecionado == date
                             
-                            DayCell(day = currentDay.toString(), tipos = tipos)
+                            val symptomsForThisDay = registros.filter {
+                                try {
+                                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == date
+                                } catch (e: Exception) { false }
+                            }
+
+                            DayItem(
+                                day = day,
+                                types = types,
+                                isSelected = isSelected,
+                                symptoms = symptomsForThisDay,
+                                onClick = { diaSelecionado = date }
+                            )
                         }
                     }
-                    currentDay++
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun DayCell(day: String, tipos: List<CalendarDayType>) {
-    val isHoje = tipos.contains(CalendarDayType.HOJE)
-    val isMenstruacao = tipos.contains(CalendarDayType.MENSTRUACAO)
-    val isFertil = tipos.contains(CalendarDayType.FERTIL)
-    val isOvulacao = tipos.contains(CalendarDayType.OVULACAO)
-    val hasSintoma = tipos.contains(CalendarDayType.SINTOMA)
-    val isSelected = tipos.contains(CalendarDayType.SELECIONADO)
+            Spacer(modifier = Modifier.height(16.dp))
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(35.dp)
-                .background(
-                    color = when {
-                        isSelected -> PurpleSelected
-                        isHoje -> PinkToday
-                        isMenstruacao -> RosaPrimario
-                        else -> Color.Transparent
-                    },
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = day,
-                fontSize = 14.sp,
-                color = if (isSelected || isHoje || isMenstruacao) Color.White else Color.Black
+            // --- INFO SECTION (SINTOMAS DO DIA SELECIONADO) ---
+            Text("Sintomas registrados em ${diaSelecionado.dayOfMonth}/${diaSelecionado.monthValue}", fontWeight = FontWeight.Bold, color = RosaPrimario)
+            
+            val sintomasHoje = registros.filter { 
+                try {
+                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == diaSelecionado
+                } catch (e: Exception) { false }
+            }
+
+            if (sintomasHoje.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.5f))
+                ) {
+                    Text("Nenhum registro para este dia.", modifier = Modifier.padding(16.dp), color = Color.Gray, fontSize = 14.sp)
+                }
+            } else {
+                sintomasHoje.forEach { registro ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(10.dp).background(getSintomaColor(registro.tipo), CircleShape))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            val enumTipo = try { SintomaTipo.valueOf(registro.tipo) } catch(e: Exception) { null }
+                            Text(enumTipo?.label ?: registro.tipo, fontWeight = FontWeight.Medium)
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text("Nível ${registro.intensidade}/5", fontSize = 12.sp, color = Color.Gray)
+                        }
+                    }
+                }
+            }
+
+            // --- CALC CARD ---
+            Spacer(modifier = Modifier.height(10.dp))
+            InfoCard(
+                title = "Próxima Menstruação",
+                value = "Em breve",
+                icon = Icons.Default.CalendarToday,
+                color = RosaClaro
             )
         }
-        
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.height(6.dp)
-        ) {
-            if (isFertil) IndicatorDot(YellowFertil)
-            if (isOvulacao) IndicatorDot(GreenOvulacao)
-            if (hasSintoma) IndicatorDot(RedSintoma)
-        }
     }
 }
 
 @Composable
-fun IndicatorDot(color: Color) {
+fun DayItem(
+    day: Int, 
+    types: List<CalendarDayType>, 
+    isSelected: Boolean, 
+    symptoms: List<com.example.minhasaudefeminina.model.RegistroSintoma>,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
-            .padding(horizontal = 1.dp)
-            .size(4.dp)
-            .background(color, CircleShape)
-    )
-}
-
-@Composable
-fun CalendarLegend() {
-    val items = listOf(
-        Pair("Menstruação", RosaPrimario),
-        Pair("Fértil", YellowFertil),
-        Pair("Ovulação", GreenOvulacao),
-        Pair("Eventos", RosaSecundario),
-        Pair("Sintomas", RedSintoma),
-        Pair("Hoje", PinkToday),
-        Pair("Selecionado", PurpleSelected)
-    )
-    
-    Column {
-        val rows = items.chunked(4)
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                row.forEach { (label, color) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(10.dp).background(color, CircleShape))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(label, fontSize = 10.sp, color = Color.Gray)
-                    }
+            .aspectRatio(1f)
+            .padding(2.dp)
+            .background(
+                color = when {
+                    isSelected -> PurpleSelected.copy(alpha = 0.2f)
+                    types.contains(CalendarDayType.HOJE) -> RosaClaro
+                    else -> Color.Transparent
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = day.toString(),
+                fontSize = 14.sp,
+                color = if (isSelected) PurpleSelected else Color.Black,
+                fontWeight = if (isSelected || types.contains(CalendarDayType.HOJE)) FontWeight.Bold else FontWeight.Normal
+            )
+            // Color dots for each symptom
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                symptoms.take(3).forEach { symptom ->
+                    Box(modifier = Modifier.size(4.dp).background(getSintomaColor(symptom.tipo), CircleShape))
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
 
 @Composable
-fun InfoCard(modifier: Modifier, title: String, value: String, iconId: Int) {
+fun InfoCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
     Card(
-        modifier = modifier.height(100.dp),
+        modifier = Modifier.fillMaxWidth().height(80.dp),
         shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = color)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .background(LightPinkBackground, RoundedCornerShape(5.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(iconId),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = RosaSecundario
-                )
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = RosaPrimario)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(title, fontSize = 12.sp, color = Color.Gray)
+                Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(title, fontSize = 10.sp, color = Color.Gray)
-            Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         }
+    }
+}
+
+fun getSintomaColor(tipo: String): Color {
+    return when(tipo) {
+        SintomaTipo.MENSTRUACAO.name -> RosaPrimario
+        SintomaTipo.COLICA.name -> OrangeSintoma
+        SintomaTipo.CORRIMENTO.name -> BlueSintoma
+        SintomaTipo.SANGRAMENTO.name -> RedSintoma
+        SintomaTipo.SINTOMA_URINARIO.name -> GreenSintoma
+        SintomaTipo.HUMOR_TPM.name -> PurpleSintoma
+        SintomaTipo.FOGACHOS.name -> PinkHotSintoma
+        SintomaTipo.SUOR_NOTURNO.name -> IndigoSintoma
+        else -> GreySintoma
     }
 }

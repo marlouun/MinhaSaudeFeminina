@@ -52,10 +52,15 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     
+    // Image Loading
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.database)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

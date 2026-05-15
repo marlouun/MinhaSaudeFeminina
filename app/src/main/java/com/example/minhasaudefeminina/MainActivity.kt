@@ -1,9 +1,11 @@
 package com.example.minhasaudefeminina
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -14,12 +16,8 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.minhasaudefeminina.ui.screens.*
+import com.example.minhasaudefeminina.ui.theme.BackgroundFeminino
 import com.example.minhasaudefeminina.ui.theme.MinhaSaudeFemininaTheme
 import com.example.minhasaudefeminina.ui.theme.RosaPrimario
 import com.example.minhasaudefeminina.ui.theme.RosaSecundario
@@ -36,11 +35,16 @@ import com.example.minhasaudefeminina.viewmodel.*
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "Iniciando App...")
         enableEdgeToEdge()
-        setContent {
-            MinhaSaudeFemininaTheme {
-                MainContainer()
+        try {
+            setContent {
+                MinhaSaudeFemininaTheme {
+                    MainContainer()
+                }
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Erro fatal no setContent: ${e.message}")
         }
     }
 }
@@ -54,16 +58,12 @@ fun MainContainer() {
         is AuthState.Authenticated -> {
             MinhaSaudeFemininaApp()
         }
-        is AuthState.Unauthenticated -> {
-            LoginScreen(viewModel = authViewModel)
-        }
         is AuthState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize().background(BackgroundFeminino), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = RosaPrimario)
             }
         }
         else -> {
-            // Idle ou Error tratados na LoginScreen
             LoginScreen(viewModel = authViewModel)
         }
     }
@@ -72,6 +72,8 @@ fun MainContainer() {
 @Composable
 fun MinhaSaudeFemininaApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    
+    // Lazy loading dos viewmodels para não travar no start
     val sintomasViewModel: SintomasViewModel = viewModel()
     val chatViewModel: ChatViewModel = viewModel()
     val perfilViewModel: PerfilViewModel = viewModel()

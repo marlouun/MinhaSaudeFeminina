@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 private val DarkColorScheme = darkColorScheme(
     primary = RosaPrimario,
     secondary = RosaSecundario,
-    tertiary = TomAcento,
+    tertiary = PurpleSelected,
     background = Color(0xFF1C1B1F),
     surface = Color(0xFF1C1B1F),
 )
@@ -23,7 +23,7 @@ private val DarkColorScheme = darkColorScheme(
 private val LightColorScheme = lightColorScheme(
     primary = RosaPrimario,
     secondary = RosaSecundario,
-    tertiary = TomAcento,
+    tertiary = PurpleSelected,
     background = BackgroundFeminino,
     surface = Color.White,
     onPrimary = Color.White,

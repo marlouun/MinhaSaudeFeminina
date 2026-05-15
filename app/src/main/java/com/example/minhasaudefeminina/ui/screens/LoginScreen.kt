@@ -28,13 +28,16 @@ import com.example.minhasaudefeminina.viewmodel.AuthViewModel
 fun LoginScreen(viewModel: AuthViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
 
     // Validações simples para ativar/desativar o botão
     val isEmailValid = email.contains("@") && email.contains(".")
     val isPasswordValid = password.length >= 6
-    val isFormValid = isEmailValid && isPasswordValid
+    val passwordsMatch = if (isSignUp) password == confirmPassword else true
+    val isFormValid = isEmailValid && isPasswordValid && passwordsMatch
 
     val authState by viewModel.authState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -91,10 +94,9 @@ fun LoginScreen(viewModel: AuthViewModel) {
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Senha") },
+                label = { Text(if (isSignUp) "Senha (mín. 6 caracteres)" else "Senha") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                // Lógica para mostrar ou esconder a senha
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
@@ -109,13 +111,36 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 )
             )
 
-            if (password.isNotEmpty() && !isPasswordValid) {
-                Text(
-                    text = "A senha deve ter pelo menos 6 caracteres",
-                    color = Color.Red,
-                    fontSize = 12.sp,
-                    modifier = Modifier.align(Alignment.Start).padding(start = 8.dp, top = 4.dp)
+            if (isSignUp) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirmar Senha") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        val image = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                            Icon(imageVector = image, contentDescription = "Toggle confirm password visibility", tint = RosaPrimario)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = RosaPrimario,
+                        unfocusedBorderColor = RosaClaro
+                    ),
+                    isError = confirmPassword.isNotEmpty() && !passwordsMatch
                 )
+                if (confirmPassword.isNotEmpty() && !passwordsMatch) {
+                    Text(
+                        text = "As senhas não conferem",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 8.dp, top = 4.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -127,7 +152,6 @@ fun LoginScreen(viewModel: AuthViewModel) {
                     else viewModel.login(email, password)
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                // O botão só funciona se o formulário estiver validado
                 enabled = !isLoading && isFormValid,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = RosaPrimario,
@@ -142,8 +166,30 @@ fun LoginScreen(viewModel: AuthViewModel) {
                 }
             }
 
+            // Botão do Google (Apenas visual conforme solicitado)
+            if (!isSignUp) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = { /* Lógica do Google será implementada conforme necessidade */ },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, RosaClaro),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Ícone do Google simulado com o "G" colorido
+                        Text("G", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4285F4))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Entrar com Google", fontSize = 16.sp)
+                    }
+                }
+            }
+
             TextButton(
-                onClick = { isSignUp = !isSignUp },
+                onClick = { 
+                    isSignUp = !isSignUp 
+                    confirmPassword = ""
+                },
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text(

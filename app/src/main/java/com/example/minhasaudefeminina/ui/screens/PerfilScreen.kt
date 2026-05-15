@@ -1,193 +1,238 @@
 package com.example.minhasaudefeminina.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.minhasaudefeminina.ui.theme.*
 import com.example.minhasaudefeminina.viewmodel.PerfilViewModel
 import com.example.minhasaudefeminina.model.FaseVida
 
 @Composable
 fun PerfilScreen(viewModel: PerfilViewModel) {
+    val authViewModel: com.example.minhasaudefeminina.viewmodel.AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val scrollState = rememberScrollState()
     val faseVida by viewModel.faseVida.collectAsState()
     val isGestante by viewModel.isGestante.collectAsState()
-    val dataPapanicolau by viewModel.dataPapanicolau.collectAsState()
-    val dataMamografia by viewModel.dataMamografia.collectAsState()
+    val photoUri by viewModel.photoUri.collectAsState()
+    
+    var showViolentometro by remember { mutableStateOf(false) }
+    var showMinhaConta by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LightPinkBackground)
-            .verticalScroll(scrollState)
-    ) {
-        // Header
-        Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 1.dp) {
-            Box(modifier = Modifier.padding(15.dp), contentAlignment = Alignment.Center) {
-                Text("♀ Minha Saúde Feminina", fontSize = 20.sp, color = RosaPrimario, fontWeight = FontWeight.Bold)
-            }
-        }
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.setPhotoUri(it) }
+    }
 
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text("Meu Perfil", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PurpleSelected)
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // User Info
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(contentAlignment = Alignment.BottomEnd) {
-                        Surface(
-                            modifier = Modifier.size(100.dp),
-                            shape = CircleShape,
-                            color = Color(0xFFD1C4E9),
-                            border = androidx.compose.foundation.BorderStroke(2.dp, PurpleSelected)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("100 x 100", fontSize = 12.sp, color = Color.Gray)
-                            }
-                        }
-                        FloatingActionButton(
-                            onClick = { },
-                            modifier = Modifier.size(32.dp),
-                            containerColor = PurpleSelected,
-                            contentColor = Color.White,
-                            shape = CircleShape
-                        ) { Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp)) }
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Maria Silva", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                    Text("maria.silva@email.com", fontSize = 14.sp, color = Color.Gray)
+    if (showViolentometro) {
+        ViolentometroScreen(onVoltar = { showViolentometro = false })
+    } else if (showMinhaConta) {
+        MinhaContaScreen(viewModel = authViewModel, onVoltar = { showMinhaConta = false })
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LightPinkBackground)
+                .verticalScroll(scrollState)
+        ) {
+            // Header
+            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 1.dp) {
+                Box(modifier = Modifier.padding(15.dp), contentAlignment = Alignment.Center) {
+                    Text("♀ Minha Saúde Feminina", fontSize = 20.sp, color = RosaPrimario, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // Fase da Vida Section (Ajuste Visual Fixo)
-            SectionCard(title = "Fase da Vida", icon = Icons.AutoMirrored.Filled.ListAlt) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val fases = FaseVida.entries
-                    val chunkedFases = fases.chunked(2)
-                    
-                    chunkedFases.forEach { rowFases ->
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rowFases.forEach { fase ->
-                                val isSelected = faseVida == fase
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(65.dp), // Um pouco mais alto para evitar quebra feia
-                                    onClick = { viewModel.setFaseVida(fase) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) Color.White else Color.Transparent,
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        width = 1.dp,
-                                        color = if (isSelected) PurpleSelected else Color.LightGray.copy(alpha = 0.5f)
-                                    ),
-                                    shadowElevation = if (isSelected) 4.dp else 0.dp
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Start
-                                    ) {
-                                        Icon(
-                                            if (fase == FaseVida.IDADE_REPRODUTIVA) Icons.Default.Favorite else Icons.Default.Spa,
-                                            null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = if (isSelected) PurpleSelected else Color.Gray
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            fase.label,
-                                            fontSize = 10.sp,
-                                            color = if (isSelected) PurpleSelected else Color.Gray,
-                                            lineHeight = 12.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            modifier = Modifier.weight(1f)
-                                        )
+            Column(modifier = Modifier.padding(20.dp)) {
+                // User Info
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(contentAlignment = Alignment.BottomEnd) {
+                            Surface(
+                                modifier = Modifier.size(110.dp),
+                                shape = CircleShape,
+                                color = RosaClaro,
+                                border = androidx.compose.foundation.BorderStroke(3.dp, RosaSecundario)
+                            ) {
+                                if (photoUri != null) {
+                                    AsyncImage(
+                                        model = photoUri,
+                                        contentDescription = "Foto de Perfil",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Person, null, modifier = Modifier.size(60.dp), tint = RosaPrimario)
                                     }
+                                }
+                            }
+                            FloatingActionButton(
+                                onClick = { launcher.launch("image/*") },
+                                modifier = Modifier.size(36.dp),
+                                containerColor = RosaSecundario,
+                                contentColor = Color.White,
+                                shape = CircleShape
+                            ) { Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(18.dp)) }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Sua Conta", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- BOTÃO MINHA CONTA ---
+                Card(
+                    onClick = { showMinhaConta = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(15.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Settings, null, tint = RosaSecundario)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Gerenciar Minha Conta", fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.ChevronRight, null, tint = Color.LightGray)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- GESTANTE TRACKER (Se ativo) ---
+                if (isGestante) {
+                    SectionCard(title = "Trilha da Gestante", icon = Icons.Default.ChildCare) {
+                        Column {
+                            Text("Você está na 24ª semana", fontWeight = FontWeight.Bold, color = RosaPrimario)
+                            LinearProgressIndicator(
+                                progress = { 0.6f },
+                                modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
+                                color = RosaSecundario,
+                                trackColor = RosaClaro
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Próxima consulta: 15/06 na UBS", fontSize = 13.sp, color = Color.Gray)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Fase da Vida Section
+                SectionCard(title = "Fase da Vida", icon = Icons.AutoMirrored.Filled.ListAlt) {
+                    val fases = FaseVida.entries.chunked(2)
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        fases.forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                row.forEach { item ->
+                                    val isSelected = faseVida == item
+                                    val icon = when(item) {
+                                        FaseVida.ADOLESCENCIA -> Icons.Default.School
+                                        FaseVida.IDADE_REPRODUTIVA -> Icons.Default.Favorite
+                                        FaseVida.GESTACAO -> Icons.Default.ChildCare
+                                        FaseVida.CLIMATERIO -> Icons.Default.WbSunny
+                                        FaseVida.MENOPAUSA -> Icons.Default.SelfImprovement
+                                        FaseVida.SENESCENCIA -> Icons.Default.Spa
+                                    }
+                                    FaseItem(
+                                        label = item.label,
+                                        icon = icon,
+                                        isSelected = isSelected,
+                                        onClick = { viewModel.setFaseVida(item) },
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(15.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Exames Preventivos
-            SectionCard(title = "Exames Preventivos", icon = Icons.Default.MonitorHeart) {
-                ExameField(label = "Papanicolau (25-64 anos)", value = dataPapanicolau, onValueChange = { viewModel.setDataPapanicolau(it) })
-                Spacer(modifier = Modifier.height(15.dp))
-                ExameField(label = "Mamografia (a partir dos 40 anos)", value = dataMamografia, onValueChange = { viewModel.setDataMamografia(it) })
-            }
-
-            Spacer(modifier = Modifier.height(15.dp))
-
-            // Gestacao
-            SectionCard(title = "Gestacao", icon = Icons.Default.ChildCare) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Estou gestante", fontWeight = FontWeight.Bold)
-                        Text("Ativar jornada da gestante", fontSize = 12.sp, color = Color.Gray)
+                // Relatório de Sintomas (DINÂMICO)
+                val registros by viewModel.registrosSintomas.collectAsState()
+                
+                SectionCard(title = "Relatório do Mês", icon = Icons.Default.BarChart) {
+                    val contagemSintomas = registros.groupBy { it.tipo }
+                        .mapValues { it.value.size }
+                    
+                    if (contagemSintomas.isEmpty()) {
+                        Text("Nenhum sintoma registrado neste mês.", fontSize = 14.sp, color = Color.Gray)
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            contagemSintomas.forEach { (tipo, qtd) ->
+                                val enumTipo = try { com.example.minhasaudefeminina.model.SintomaTipo.valueOf(tipo) } catch(e: Exception) { null }
+                                ReportItem(
+                                    label = enumTipo?.label ?: tipo,
+                                    count = qtd,
+                                    color = getSintomaColor(tipo)
+                                )
+                            }
+                        }
                     }
-                    Switch(checked = isGestante, onCheckedChange = { viewModel.setGestante(it) }, colors = SwitchDefaults.colors(checkedTrackColor = RosaSecundario))
                 }
-            }
 
-            // Violentometro
-            Spacer(modifier = Modifier.height(15.dp))
-            SectionCard(title = "Violentômetro", icon = Icons.Default.Warning) {
-                Text("Identifique sinais de violência e busque ajuda.", fontSize = 13.sp, color = Color.Gray)
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Settings
+                SectionCard(title = "Configurações", icon = Icons.Default.Settings) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Estou gestante", modifier = Modifier.weight(1f))
+                        Switch(checked = isGestante, onCheckedChange = { viewModel.setGestante(it) }, colors = SwitchDefaults.colors(checkedTrackColor = RosaSecundario))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Button(
-                    onClick = { /* Abrir Violentometro UI */ },
-                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { showViolentometro = true },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RedSintoma),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Ver Violentômetro", color = Color.White)
+                    Icon(Icons.Default.Warning, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ver Violentômetro", fontWeight = FontWeight.Bold)
                 }
-            }
 
-            Spacer(modifier = Modifier.height(15.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Privacy Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Row(modifier = Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, null, modifier = Modifier.size(16.dp), tint = Color.Gray)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        "Seus dados sao armazenados localmente no seu dispositivo. Sua privacidade e nossa prioridade (LGPD).",
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
+                // Logout (Padronizado)
+                TextButton(
+                    onClick = { viewModel.signOut() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = RosaPrimario)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sair da Conta", color = RosaPrimario, fontWeight = FontWeight.Bold)
+                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(100.dp))
+                Spacer(modifier = Modifier.height(100.dp))
+            }
         }
     }
 }
@@ -199,49 +244,43 @@ fun SectionCard(title: String, icon: ImageVector, content: @Composable () -> Uni
         shape = RoundedCornerShape(15.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(modifier = Modifier.padding(15.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(32.dp).background(Color(0xFFF3E5F5), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, modifier = Modifier.size(18.dp), tint = PurpleSelected)
+                Box(modifier = Modifier.size(32.dp).background(RosaClaro, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, modifier = Modifier.size(18.dp), tint = RosaPrimario)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = RosaPrimario)
             }
-            Spacer(modifier = Modifier.height(15.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             content()
         }
     }
 }
 
 @Composable
-fun ExameField(label: String, value: String, onValueChange: (String) -> Unit) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-            if (value.isEmpty()) {
-                Text("Nao informado", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.background(Color(0xFFEEEEEE), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
-            }
+fun FaseItem(label: String, icon: ImageVector, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(60.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) RosaClaro else Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) RosaSecundario else Color.LightGray.copy(alpha = 0.3f))
+    ) {
+        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, modifier = Modifier.size(18.dp), tint = if (isSelected) RosaPrimario else Color.Gray)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) RosaPrimario else Color.Black)
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(10.dp),
-            placeholder = { Text("dd/mm/aaaa", color = Color.LightGray) },
-            colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = RosaClaro, focusedBorderColor = RosaSecundario)
-        )
     }
 }
 
 @Composable
-fun ToggleRow(title: String, subtitle: String, checked: Boolean) {
-    var isChecked by remember { mutableStateOf(checked) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold)
-            Text(subtitle, fontSize = 12.sp, color = Color.Gray)
-        }
-        Switch(checked = isChecked, onCheckedChange = { isChecked = it }, colors = SwitchDefaults.colors(checkedTrackColor = RosaSecundario))
+fun ReportItem(label: String, count: Int, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text("$count registros", fontSize = 12.sp, color = Color.Gray)
     }
 }

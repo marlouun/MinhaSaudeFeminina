@@ -5,15 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.minhasaudefeminina.model.RegistroSintoma
 import com.example.minhasaudefeminina.model.SintomaTipo
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withTimeout
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.temporal.ChronoUnit
+import java.time.ZoneId
+import java.util.*
 
 enum class CalendarDayType {
     MENSTRUACAO, FERTIL, OVULACAO, SINTOMA, HOJE, SELECIONADO
@@ -28,7 +30,11 @@ sealed class SalvarState {
 
 class SintomasViewModel : ViewModel() {
 
-    private val db = try { FirebaseFirestore.getInstance() } catch (e: Exception) { null }
+    private val dbUrl = "https://device-streaming-9c4db877-default-rtdb.firebaseio.com/"
+    private val auth = try { FirebaseAuth.getInstance() } catch(e: Exception) { null }
+    private val db = try { 
+        FirebaseDatabase.getInstance(dbUrl).reference 
+    } catch (e: Exception) { null }
 
     private val _alertas = MutableStateFlow<List<String>>(emptyList())
     val alertas: StateFlow<List<String>> = _alertas
@@ -50,34 +56,36 @@ class SintomasViewModel : ViewModel() {
     }
 
     private fun carregarRegistros() {
-        viewModelScope.launch {
-            if (db == null) {
-                Log.w("SintomasViewModel", "Firestore não disponível para carregar.")
-                return@launch
-            }
-            try {
-                val snapshot = withTimeout(5000) {
-                    db.collection("registrosSintomas")
-                        .whereEqualTo("usuario_id", "user-id")
-                        .get()
-                        .await()
+        val userId = auth?.currentUser?.uid ?: return
+        
+        db?.child("usuarios")?.child(userId)?.child("registros_sintomas")
+            ?.addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val lista = mutableListOf<RegistroSintoma>()
+                    snapshot.children.forEach { child ->
+                        try {
+                            val registro = child.getValue(RegistroSintoma::class.java)
+                            if (registro != null) lista.add(registro)
+                        } catch (e: Exception) {
+                            Log.e("SintomasViewModel", "Erro conversao: ${e.message}")
+                        }
+                    }
+                    _registrosSintomas.value = lista
+                    
+                    // Ultima menstruação para calculos
+                    val ultimaM = lista.filter { it.tipo == SintomaTipo.MENSTRUACAO.name }
+                        .maxByOrNull { it.data_timestamp }
+                    
+                    ultimaM?.let {
+                        _ultimaMenstruacao.value = Instant.ofEpochMilli(it.data_timestamp)
+                            .atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
                 }
-                val lista = snapshot.toObjects(RegistroSintoma::class.java)
-                _registrosSintomas.value = lista
-                
-                // Encontrar a última menstruação para cálculos
-                val ultimaM = lista.filter { it.tipo == SintomaTipo.MENSTRUACAO.name }
-                    .maxByOrNull { it.data.seconds }
-                
-                ultimaM?.let {
-                    _ultimaMenstruacao.value = it.data.toDate().toInstant()
-                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e("SintomasViewModel", "Erro Database: ${error.message}")
                 }
-                
-            } catch (e: Exception) {
-                Log.e("SintomasViewModel", "Erro ao carregar registros: ${e.message}")
-            }
-        }
+            })
     }
 
     fun mesAnterior() { _mesExibido.value = _mesExibido.value.minusMonths(1) }
@@ -87,7 +95,9 @@ class SintomasViewModel : ViewModel() {
         val ultima = _ultimaMenstruacao.value ?: return 0
         val dataEsperada = ultima.plusDays(duracaoCicloMedia.toLong())
         val hoje = LocalDate.now()
-        return if (hoje.isAfter(dataEsperada)) ChronoUnit.DAYS.between(dataEsperada, hoje).toInt() else 0
+        return if (hoje.isAfter(dataEsperada)) {
+            java.time.temporal.ChronoUnit.DAYS.between(dataEsperada, hoje).toInt()
+        } else 0
     }
 
     fun getTiposParaDia(data: LocalDate): List<CalendarDayType> {
@@ -95,10 +105,9 @@ class SintomasViewModel : ViewModel() {
         if (data == LocalDate.now()) tipos.add(CalendarDayType.HOJE)
 
         val registrosNoDia = _registrosSintomas.value.filter { registro ->
-            try {
-                val dataRegistro = registro.data.toDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                dataRegistro == data
-            } catch (e: Exception) { false }
+            val dataRegistro = Instant.ofEpochMilli(registro.data_timestamp)
+                .atZone(ZoneId.systemDefault()).toLocalDate()
+            dataRegistro == data
         }
 
         registrosNoDia.forEach { registro ->
@@ -106,59 +115,27 @@ class SintomasViewModel : ViewModel() {
             else if (!tipos.contains(CalendarDayType.SINTOMA)) tipos.add(CalendarDayType.SINTOMA)
         }
 
-        _ultimaMenstruacao.value?.let { ultima ->
-            val dia10 = ultima.plusDays(10)
-            val dia16 = ultima.plusDays(16)
-            if (!data.isBefore(dia10) && !data.isAfter(dia16)) {
-                if (data == ultima.plusDays(14)) tipos.add(CalendarDayType.OVULACAO)
-                else tipos.add(CalendarDayType.FERTIL)
-            }
-        }
         return tipos
     }
 
     fun salvarRegistro(registro: RegistroSintoma) {
+        val userId = auth?.currentUser?.uid ?: return
         viewModelScope.launch {
             _salvarState.value = SalvarState.Carregando
-            analisarAlertasMedicos(registro)
-
             try {
-                if (db != null) {
-                    withTimeout(6000) {
-                        db.collection("registrosSintomas").add(registro).await()
-                    }
-                } else {
-                    Log.d("SintomasViewModel", "Salvando localmente (Firebase OFF)")
-                    kotlinx.coroutines.delay(300)
-                }
-                
-                // Atualizar estado local IMEDIATAMENTE
-                val listaAtualizada = _registrosSintomas.value.toMutableList()
-                listaAtualizada.add(registro)
-                _registrosSintomas.value = listaAtualizada
-
-                if (registro.tipo == SintomaTipo.MENSTRUACAO.name) {
-                    _ultimaMenstruacao.value = registro.data.toDate().toInstant()
-                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                }
-                
+                val ref = db?.child("usuarios")?.child(userId)?.child("registros_sintomas")?.push()
+                val registroFinal = registro.copy(
+                    id = ref?.key ?: UUID.randomUUID().toString(),
+                    usuario_id = userId,
+                    data_timestamp = System.currentTimeMillis()
+                )
+                ref?.setValue(registroFinal)?.await()
                 _salvarState.value = SalvarState.Sucesso
-                Log.d("SintomasViewModel", "Sucesso no salvamento")
-
             } catch (e: Exception) {
-                Log.e("SintomasViewModel", "Erro: ${e.message}")
-                // Mesmo com erro de rede, garantimos que a UI atualize com o cache local
-                _salvarState.value = SalvarState.Sucesso
+                Log.e("SintomasViewModel", "Erro salvar: ${e.message}")
+                _salvarState.value = SalvarState.Sucesso // Feedback local
             }
         }
-    }
-
-    private fun analisarAlertasMedicos(registro: RegistroSintoma) {
-        val novosAlertas = mutableListOf<String>()
-        if (registro.tipo == SintomaTipo.SANGRAMENTO.name && registro.intensidade == 5) {
-            novosAlertas.add("Sangramento muito intenso detectado. Se acompanhado de febre ou dor forte, procure a UBS.")
-        }
-        _alertas.value = novosAlertas
     }
 
     fun limparAlertas() { _alertas.value = emptyList() }
