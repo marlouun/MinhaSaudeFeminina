@@ -1,81 +1,173 @@
 package com.example.minhasaudefeminina.ui.screens
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bloodtype
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.SentimentDissatisfied
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.BorderStroke
-import com.example.minhasaudefeminina.model.RegistroSintoma
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.minhasaudefeminina.model.SintomaTipo
-import com.example.minhasaudefeminina.ui.theme.*
+import com.example.minhasaudefeminina.ui.theme.BackgroundFeminino
+import com.example.minhasaudefeminina.ui.theme.BlueSintoma
+import com.example.minhasaudefeminina.ui.theme.GreenSintoma
+import com.example.minhasaudefeminina.ui.theme.GreySintoma
+import com.example.minhasaudefeminina.ui.theme.IndigoSintoma
+import com.example.minhasaudefeminina.ui.theme.OrangeSintoma
+import com.example.minhasaudefeminina.ui.theme.PinkHotSintoma
+import com.example.minhasaudefeminina.ui.theme.PurpleSintoma
+import com.example.minhasaudefeminina.ui.theme.RedSintoma
+import com.example.minhasaudefeminina.ui.theme.RosaClaro
+import com.example.minhasaudefeminina.ui.theme.RosaPrimario
+import com.example.minhasaudefeminina.ui.theme.RosaSecundario
 import com.example.minhasaudefeminina.viewmodel.SalvarState
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
-import java.text.SimpleDateFormat
-import java.util.*
+import com.example.minhasaudefeminina.viewmodel.localDate
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
-    val dataFormatada = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-    var sintomaSelecionado by remember { mutableStateOf<SintomaTipo?>(null) }
-    var intensidade by remember { mutableIntStateOf(3) }
-    var notas by remember { mutableStateOf("") }
+fun RegistrarSintomaScreen(
+    viewModel: SintomasViewModel,
+    initialDate: LocalDate,
+    recordId: String?,
+    onVoltar: () -> Unit,
+    onFinished: () -> Unit
+) {
+    val context = LocalContext.current
+    val records by viewModel.registrosSintomas.collectAsStateWithLifecycle()
+    val saveState by viewModel.salvarState.collectAsStateWithLifecycle()
+    val existing = remember(records, recordId) { records.firstOrNull { it.id == recordId } }
+    val snackbar = remember { SnackbarHostState() }
 
-    val alertas by viewModel.alertas.collectAsState()
-    val salvarState by viewModel.salvarState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    var date by rememberSaveable { mutableStateOf(initialDate) }
+    var selectedTypeName by rememberSaveable { mutableStateOf<String?>(null) }
+    var intensity by rememberSaveable { mutableIntStateOf(3) }
+    var notes by rememberSaveable { mutableStateOf("") }
+    var initializedRecord by rememberSaveable { mutableStateOf<String?>(null) }
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
 
-    val sintomas = listOf(
-        SintomaUI(SintomaTipo.MENSTRUACAO, Icons.Default.Bloodtype, RosaPrimario),
-        SintomaUI(SintomaTipo.COLICA, Icons.Default.SentimentDissatisfied, OrangeSintoma),
-        SintomaUI(SintomaTipo.CORRIMENTO, Icons.Default.WaterDrop, BlueSintoma),
-        SintomaUI(SintomaTipo.SANGRAMENTO, Icons.Default.Adjust, RedSintoma),
-        SintomaUI(SintomaTipo.SINTOMA_URINARIO, Icons.Default.Whatshot, GreenSintoma),
-        SintomaUI(SintomaTipo.HUMOR_TPM, Icons.Default.Favorite, PurpleSintoma),
-        SintomaUI(SintomaTipo.FOGACHOS, Icons.Default.Thermostat, PinkHotSintoma),
-        SintomaUI(SintomaTipo.SUOR_NOTURNO, Icons.Default.Nightlight, IndigoSintoma),
-        SintomaUI(SintomaTipo.OUTRO, Icons.Default.Description, GreySintoma)
-    )
+    val selectedType = selectedTypeName?.let { runCatching { SintomaTipo.valueOf(it) }.getOrNull() }
 
-    LaunchedEffect(alertas) {
-        if (alertas.isNotEmpty()) {
-            snackbarHostState.showSnackbar(alertas.joinToString("\n"))
-            viewModel.limparAlertas()
+    LaunchedEffect(existing?.id) {
+        if (existing != null && initializedRecord != existing.id) {
+            date = existing.localDate()
+            selectedTypeName = existing.tipo.name
+            intensity = existing.intensidade
+            notes = existing.notas.orEmpty()
+            initializedRecord = existing.id
         }
     }
 
-    LaunchedEffect(salvarState) {
-        if (salvarState is SalvarState.Sucesso) {
-            snackbarHostState.showSnackbar("Registro salvo com sucesso!")
-            sintomaSelecionado = null
-            intensidade = 3
-            notas = ""
-            viewModel.resetarSalvarState()
+    LaunchedEffect(saveState) {
+        when (val state = saveState) {
+            is SalvarState.Erro -> {
+                snackbar.showSnackbar(state.mensagem)
+                viewModel.resetSaveState()
+            }
+            is SalvarState.Sucesso -> {
+                snackbar.showSnackbar(state.message, duration = SnackbarDuration.Short)
+                viewModel.resetSaveState()
+                onFinished()
+            }
+            else -> Unit
         }
+    }
+
+    fun openDatePicker() {
+        DatePickerDialog(
+            context,
+            { _, year, month, day -> date = LocalDate.of(year, month + 1, day) },
+            date.year,
+            date.monthValue - 1,
+            date.dayOfMonth
+        ).apply {
+            datePicker.maxDate = System.currentTimeMillis()
+        }.show()
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text(if (recordId == null) "Novo registro" else "Editar registro") },
+                navigationIcon = {
+                    IconButton(onClick = onVoltar) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar")
+                    }
+                },
+                actions = {
+                    if (recordId != null) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, "Excluir registro", tint = RedSintoma)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
         containerColor = BackgroundFeminino
     ) { padding ->
         Column(
@@ -86,191 +178,187 @@ fun RegistrarSintomaScreen(viewModel: SintomasViewModel) {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Novo Registro",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = RosaPrimario,
-                modifier = Modifier.align(Alignment.Start)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Data",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.align(Alignment.Start)
-            )
+            Text("Data do registro", modifier = Modifier.fillMaxWidth(), color = Color.Gray)
             OutlinedTextField(
-                value = dataFormatada,
-                onValueChange = { },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                value = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                onValueChange = {},
                 readOnly = true,
-                shape = RoundedCornerShape(10.dp),
+                trailingIcon = {
+                    IconButton(onClick = ::openDatePicker) {
+                        Icon(Icons.Default.CalendarMonth, "Escolher data", tint = RosaPrimario)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().clickable(onClick = ::openDatePicker),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = RosaClaro,
-                    focusedBorderColor = RosaSecundario
+                    focusedBorderColor = RosaPrimario,
+                    unfocusedBorderColor = RosaClaro
                 )
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
-
             Text(
-                text = "O que você está sentindo?",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
+                "O que você está sentindo?",
+                modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 10.dp),
+                color = Color.Gray
             )
 
-            Box(modifier = Modifier.height(380.dp)) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+            symptomOptions().chunked(3).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(sintomas) { item ->
-                        val isSelected = sintomaSelecionado == item.tipo
-                        Surface(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clickable { sintomaSelecionado = item.tipo },
-                            shape = RoundedCornerShape(15.dp),
-                            color = if (isSelected) RosaClaro.copy(alpha = 0.3f) else Color.White,
-                            border = BorderStroke(1.dp, if (isSelected) RosaSecundario else Color(0xFFEEEEEE)),
-                            shadowElevation = if (isSelected) 4.dp else 0.dp
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(4.dp)
-                            ) {
-                                Icon(
-                                    item.icone,
-                                    null,
-                                    modifier = Modifier.size(28.dp),
-                                    tint = if (isSelected) item.cor else item.cor.copy(alpha = 0.6f)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    item.tipo.label,
-                                    fontSize = 10.sp,
-                                    textAlign = TextAlign.Center,
-                                    color = if (isSelected) Color.Black else Color.Gray,
-                                    lineHeight = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
+                    rowItems.forEach { item ->
+                        SymptomOption(
+                            item = item,
+                            selected = selectedType == item.type,
+                            onClick = { selectedTypeName = item.type.name },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
+                    repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
             Text(
-                text = "Intensidade: $intensidade/5",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
+                "Intensidade: $intensity/5",
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 8.dp),
+                color = Color.Gray
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                (1..5).forEach { num ->
-                    val isHighlighted = num <= intensidade
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (1..5).forEach { value ->
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(45.dp)
-                            .padding(horizontal = 4.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isHighlighted) RosaSecundario else Color.White)
-                            .border(1.dp, if (isHighlighted) RosaSecundario else Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                            .clickable { intensidade = num },
+                            .height(44.dp)
+                            .background(
+                                if (value <= intensity) RosaSecundario else Color.White,
+                                RoundedCornerShape(11.dp)
+                            )
+                            .border(
+                                1.dp,
+                                if (value <= intensity) RosaSecundario else Color.LightGray,
+                                RoundedCornerShape(11.dp)
+                            )
+                            .clickable { intensity = value },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = num.toString(),
-                            color = if (isHighlighted) Color.White else Color.Gray,
+                            value.toString(),
+                            color = if (value <= intensity) Color.White else Color.Gray,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
             Text(
-                text = "Notas (opcional)",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.align(Alignment.Start)
+                "Notas (opcional)",
+                modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 6.dp),
+                color = Color.Gray
             )
             OutlinedTextField(
-                value = notas,
-                onValueChange = { notas = it },
-                placeholder = { Text("Descreva como se sente...", fontSize = 14.sp) },
-                modifier = Modifier.fillMaxWidth().height(100.dp),
-                shape = RoundedCornerShape(10.dp),
+                value = notes,
+                onValueChange = { notes = it.take(1_000) },
+                placeholder = { Text("Descreva como você se sente...") },
+                supportingText = { Text("${notes.length}/1000") },
+                modifier = Modifier.fillMaxWidth().height(140.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = RosaClaro,
-                    focusedBorderColor = RosaSecundario
+                    focusedBorderColor = RosaPrimario,
+                    unfocusedBorderColor = RosaClaro
                 )
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
-
-            val carregando = salvarState is SalvarState.Carregando
+            val loading = saveState is SalvarState.Carregando
             Button(
-                onClick = {
-                    sintomaSelecionado?.let { tipo ->
-                        viewModel.salvarRegistro(
-                            RegistroSintoma(
-                                tipo = tipo.name,
-                                intensidade = intensidade,
-                                notas = notas
-                            )
-                        )
-                    }
-                },
-                enabled = sintomaSelecionado != null && !carregando,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RosaSecundario,
-                    disabledContainerColor = RosaClaro
-                ),
-                shape = RoundedCornerShape(28.dp)
+                onClick = { viewModel.saveRecord(recordId, date, selectedType, intensity, notes) },
+                enabled = selectedType != null && !loading,
+                modifier = Modifier.fillMaxWidth().height(56.dp).padding(top = 10.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = RosaSecundario)
             ) {
-                if (carregando) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Salvar Registro", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                }
+                if (loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                else Text(if (recordId == null) "Salvar registro" else "Salvar alterações", fontSize = 17.sp)
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-            
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4).copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(10.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 30.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4).copy(alpha = 0.65f)),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, null, tint = Color(0xFFFBC02D), modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
+                Row(modifier = Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = Color(0xFFF9A825), modifier = Modifier.size(18.dp))
                     Text(
-                        text = "Essas informações não substituem avaliação médica. Procure sempre a UBS.",
-                        fontSize = 11.sp,
+                        "O registro ajuda a acompanhar seu padrão, mas não substitui avaliação médica.",
+                        modifier = Modifier.padding(start = 8.dp),
+                        fontSize = 12.sp,
                         color = Color.DarkGray
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Excluir registro?") },
+            text = { Text("Esta ação remove o registro deste aparelho e não pode ser desfeita.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        recordId?.let(viewModel::deleteRecord)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedSintoma)
+                ) { Text("Excluir") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") } }
+        )
     }
 }
 
-data class SintomaUI(val tipo: SintomaTipo, val icone: ImageVector, val cor: Color)
+private data class SymptomOptionData(val type: SintomaTipo, val icon: ImageVector, val color: Color)
+
+private fun symptomOptions() = listOf(
+    SymptomOptionData(SintomaTipo.MENSTRUACAO, Icons.Default.Bloodtype, RosaPrimario),
+    SymptomOptionData(SintomaTipo.COLICA, Icons.Default.SentimentDissatisfied, OrangeSintoma),
+    SymptomOptionData(SintomaTipo.CORRIMENTO, Icons.Default.WaterDrop, BlueSintoma),
+    SymptomOptionData(SintomaTipo.SANGRAMENTO, Icons.Default.Adjust, RedSintoma),
+    SymptomOptionData(SintomaTipo.SINTOMA_URINARIO, Icons.Default.Whatshot, GreenSintoma),
+    SymptomOptionData(SintomaTipo.HUMOR_TPM, Icons.Default.Favorite, PurpleSintoma),
+    SymptomOptionData(SintomaTipo.FOGACHOS, Icons.Default.Thermostat, PinkHotSintoma),
+    SymptomOptionData(SintomaTipo.SUOR_NOTURNO, Icons.Default.Nightlight, IndigoSintoma),
+    SymptomOptionData(SintomaTipo.OUTRO, Icons.Default.Description, GreySintoma)
+)
+
+@Composable
+private fun SymptomOption(
+    item: SymptomOptionData,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier
+) {
+    Surface(
+        modifier = modifier.height(105.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) RosaClaro.copy(alpha = 0.55f) else Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) RosaSecundario else Color(0xFFE5E5E5))
+    ) {
+        Column(
+            modifier = Modifier.padding(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(item.icon, null, tint = item.color, modifier = Modifier.size(28.dp))
+            Text(
+                item.type.label,
+                modifier = Modifier.padding(top = 7.dp),
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+                textAlign = TextAlign.Center,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+    }
+}

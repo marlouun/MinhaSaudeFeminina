@@ -1,284 +1,263 @@
-# APP Minha Saúde Feminina
+# Minha Saúde Feminina
 
-<div align="center">
+Aplicativo Android de acompanhamento pessoal e educação em saúde feminina, acompanhado de um painel web separado para criação e gerenciamento de artigos.
 
-**Aplicativo Android de saúde feminina com foco em educação, acompanhamento menstrual e suporte à saúde da mulher**
+Esta edição foi reorganizada para funcionar **sem Firebase e sem servidor**. O Android salva os dados no próprio aparelho; o painel administrativo salva os artigos no navegador. A estrutura foi preparada com interfaces de repository para permitir a inclusão de uma API no futuro sem reescrever toda a interface.
 
+> **Aviso de saúde:** o aplicativo oferece organização e informação geral. Ele não realiza diagnóstico, não prescreve tratamento e não substitui consulta, Unidade Básica de Saúde ou serviço de emergência.
 
-</div>
+## Estado atual
 
----
+### Aplicativo Android
 
-##  Sobre
+- conta local com cadastro, login, sessão, alteração de dados, troca de senha, logout e exclusão;
+- senha derivada com PBKDF2 e salt aleatório, sem armazenamento em texto puro;
+- persistência com Room para usuários, perfil, sintomas, chat e artigos;
+- DataStore para a sessão local;
+- calendário mensal com registros reais;
+- criação, edição e exclusão de sintomas, respeitando a data escolhida;
+- estimativa simples do próximo ciclo, identificada como aproximação e não como método contraceptivo;
+- perfil com fase da vida, gestação, foto e datas de exames;
+- relatório mensal de sintomas;
+- chat informativo local, baseado em regras e com histórico persistido;
+- artigos locais pesquisáveis, separados por categoria e renderizados a partir de JSON estruturado;
+- navegação real com Navigation Compose;
+- Violentômetro e acesso aos canais de ajuda já existentes no projeto.
 
-**Minha Saúde Feminina** é um aplicativo Android desenvolvido em Kotlin com Jetpack Compose que visa empoderar mulheres através de informações confiáveis sobre saúde feminina, acompanhamento do ciclo menstrual e acesso a conteúdos educacionais validados.
+### Painel administrativo web
 
-O aplicativo foi desenvolvido com base nas diretrizes do **Ministério da Saúde** e nos **Protocolos da Atenção Básica**, oferecendo informações seguras e acessíveis para todas as fases da vida da mulher.
+- configuração e login de administrador local;
+- dashboard com total, publicados, rascunhos e conteúdos recentes;
+- pesquisa e filtros por categoria e status;
+- criação, edição, duplicação, visualização, publicação e exclusão;
+- autosave de rascunho;
+- editor TipTap com títulos, negrito, itálico, sublinhado, tachado, listas, citação, código, alinhamento, links, separadores e imagens por URL;
+- imagem de capa local;
+- validação antes da publicação;
+- sanitização do documento e bloqueio de links fora de HTTP/HTTPS;
+- layout responsivo para computador, tablet e celular;
+- armazenamento em IndexedDB por meio do Dexie.
 
-###  Objetivos
+## Limitação importante: os dois projetos ainda não sincronizam
 
-- Democratizar o acesso à informação sobre saúde feminina
-- Auxiliar no acompanhamento do ciclo menstrual
-- Educar sobre prevenção e cuidados com a saúde
-- Combater a desinformação através de conteúdo validado
-- Promover o autocuidado e a autonomia feminina
+O Android e o painel estão totalmente locais, mas usam armazenamentos diferentes:
 
----
+| Projeto | Onde salva |
+|---|---|
+| Android | banco Room e DataStore do aparelho |
+| Painel web | IndexedDB e armazenamento local do navegador |
 
-##  Funcionalidades
+Por isso, publicar um artigo no painel **não o envia automaticamente ao Android**. Essa sincronização só será possível após a criação de uma API ou outro backend compartilhado. A camada de repositories já foi separada para facilitar essa evolução.
 
-###  Calendário Menstrual
-- Visualização mensal do ciclo com marcadores visuais
-- Identificação de períodos de menstruação, ovulação e fase fértil
-- Calculadora de atraso menstrual com alertas
-- Registro de sintomas diários (cólica, corrimento, humor, etc.)
-- Histórico completo de registros
+Também é importante lembrar:
 
-###  Chat de Dúvidas
-- Sistema de perguntas e respostas sobre saúde feminina
-- Sugestões rápidas de tópicos comuns
-- Interface conversacional intuitiva
-- Respostas baseadas em informações validadas
+- desinstalar o aplicativo ou limpar seus dados remove os dados Android;
+- limpar os dados do site remove a conta administrativa e os artigos do painel;
+- abrir o painel em outro navegador ou computador cria outro armazenamento independente;
+- autenticação somente no dispositivo/navegador é uma solução temporária e não equivale à segurança de um servidor.
 
-###  Educação em Saúde
-- Artigos completos sobre diversos temas:
-  - **Menstruação**: Ciclo, cólicas, corrimento, sangramento
-  - **Gestação**: Pré-natal, amamentação, puerpério
-  - **Contracepção**: Métodos disponíveis no SUS, laqueadura
-  - **Prevenção**: Papanicolau, saúde das mamas, infecções urinárias
-  - **Climatério**: Menopausa, fogachos, TPM
-- Conteúdo organizado por categorias
-- Referências e fontes oficiais
-- Interface de leitura otimizada
+## Tecnologias
 
-###  Perfil do Usuário
-- Gerenciamento de dados pessoais
-- Configuração de fase de vida (adolescência, idade reprodutiva, gestação, climatério, etc.)
-- Registro de exames importantes (Papanicolau, mamografia)
-- Autenticação segura com Firebase
+### Android
 
-### Autenticação
-- Login e cadastro com e-mail e senha
-- Integração com Firebase Authentication
-- Proteção de dados pessoais
-- Recuperação de senha
+- Kotlin;
+- Jetpack Compose e Material 3;
+- Navigation Compose;
+- Room;
+- DataStore Preferences;
+- Coroutines e Flow;
+- Coil;
+- Gradle, KSP e testes JUnit.
 
----
+### Painel web
 
-##  Tecnologias
+- React e TypeScript;
+- Vite;
+- React Router;
+- TipTap/ProseMirror;
+- Dexie e IndexedDB;
+- Bootstrap e CSS próprio;
+- Web Crypto API;
+- Vitest.
 
-### Core
-- **Kotlin** - Linguagem de programação
-- **Jetpack Compose** - UI moderna e declarativa
-- **Material Design 3** - Design system
+## Estrutura principal
 
-### Arquitetura
-- **MVVM** (Model-View-ViewModel)
-- **StateFlow** - Gerenciamento de estado reativo
-- **ViewModel** - Ciclo de vida consciente
+```text
+MinhaSaudeFeminina/
+├── app/                         # aplicativo Android
+│   └── src/main/java/.../
+│       ├── app/                 # container de dependências
+│       ├── data/
+│       │   ├── local/           # Room e DataStore
+│       │   ├── repository/      # contratos e implementações locais
+│       │   └── security/        # derivação local de senha
+│       ├── domain/              # validação e formato dos artigos
+│       ├── navigation/          # rotas do aplicativo
+│       ├── ui/                  # telas e componentes Compose
+│       └── viewmodel/           # estado e regras de apresentação
+├── admin-web/                   # painel administrativo React
+│   ├── public/
+│   └── src/
+│       ├── components/
+│       ├── contexts/
+│       ├── db/
+│       ├── editor/
+│       ├── hooks/
+│       ├── layout/
+│       ├── pages/
+│       ├── repositories/
+│       ├── security/
+│       ├── types/
+│       └── utils/
+├── docs/
+│   ├── AUDITORIA_INICIAL.md
+│   └── FORMATO_ARTIGOS.md
+└── .github/workflows/ci.yml
+```
 
-### Backend & Dados
-- **Firebase Authentication** - Autenticação de usuários
-- **Firebase Firestore** - Banco de dados NoSQL em tempo real
-- **Firebase BOM** - Gerenciamento de versões
-
-### Bibliotecas Android
-- **AndroidX Core KTX** - Extensões Kotlin para Android
-- **Lifecycle Runtime KTX** - Componentes de ciclo de vida
-- **Activity Compose** - Integração de Activities com Compose
-- **Material Icons Extended** - Ícones do Material Design
-- **Navigation Compose** - Navegação entre telas
-
-### Build & Ferramentas
-- **Gradle KTS** - Build system com Kotlin DSL
-- **Android Gradle Plugin** - Compilação Android
-- **Desugar JDK Libs** - Suporte a APIs Java 8+ em versões antigas do Android
+## Executar o Android no Android Studio
 
 ### Requisitos
-- **Min SDK**: 24 (Android 7.0 Nougat)
-- **Target SDK**: 35 (Android 15)
-- **Compile SDK**: 35
-- **Java Version**: 11
 
----
+- Android Studio atualizado;
+- JDK 17, normalmente já incluído no Android Studio;
+- Android SDK 35 instalado;
+- emulador Android ou celular com Android 7.0/API 24 ou superior.
 
-##  Instalação
+### Passo a passo
 
-### Pré-requisitos
+1. Clone ou baixe este repositório.
+2. Abra o Android Studio.
+3. Clique em **Open** e selecione a pasta raiz `MinhaSaudeFeminina` — não selecione somente a pasta `app`.
+4. Aguarde o **Gradle Sync** terminar. Na primeira vez, o Android Studio precisará baixar dependências.
+5. Abra o **Device Manager** e inicie um emulador, ou conecte um celular com depuração USB habilitada.
+6. Na barra superior, escolha a configuração `app` e o dispositivo desejado.
+7. Clique no botão **Run** ▶.
 
-- Android Studio Hedgehog ou superior
-- JDK 11 ou superior
-- Conta no Firebase (para configuração do backend)
+Não é necessário criar projeto no Firebase nem adicionar `google-services.json`.
 
-### Passo a Passo
+### Validar pelo terminal
 
-1. **Clone o repositório**
+No Windows PowerShell ou Prompt de Comando:
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat assembleDebug
+```
+
+No Linux ou macOS:
+
 ```bash
-git clone https://github.com/seu-usuario/minhasaudefeminina.git
-cd minhasaudefeminina
+chmod +x ./gradlew
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
 ```
 
-2. **Configure o Firebase**
-   - Crie um projeto no [Firebase Console](https://console.firebase.google.com/)
-   - Adicione um app Android com o package name: `com.example.minhasaudefeminina`
-   - Baixe o arquivo `google-services.json`
-   - Coloque o arquivo em `app/google-services.json`
-   - Ative **Authentication** (Email/Password) e **Firestore** no console
+O APK de depuração é gerado em:
 
-3. **Abra o projeto no Android Studio**
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Executar o painel web
+
+### Requisitos
+
+- Node.js 22.12 ou superior;
+- npm.
+
+### Passo a passo
+
 ```bash
-# No terminal do Android Studio
-./gradlew build
+cd admin-web
+npm install
+npm run dev
 ```
 
-4. **Execute o aplicativo**
-   - Conecte um dispositivo Android ou inicie um emulador
-   - Clique em "Run" (▶️) ou pressione `Shift + F10`
+Abra o endereço exibido pelo Vite, normalmente `http://localhost:5173`.
 
----
+No primeiro acesso, o painel solicitará a criação de um administrador local. Use um e-mail válido e uma senha com pelo menos oito caracteres, uma letra e um número.
 
-##  Estrutura do Projeto
+### Testar e gerar a versão de produção
 
-```
-app/src/main/java/com/example/minhasaudefeminina/
-│
-├── 📱 MainActivity.kt                    # Activity principal
-│
-├── 🎨 ui/
-│   ├── screens/                          # Telas do aplicativo
-│   │   ├── HomeScreen.kt                 # Calendário menstrual
-│   │   ├── ChatScreen.kt                 # Chat de dúvidas
-│   │   ├── EducacaoScreen.kt             # Artigos educacionais
-│   │   ├── PerfilScreen.kt               # Perfil do usuário
-│   │   ├── LoginScreen.kt                # Autenticação
-│   │   └── RegistrarSintomaScreen.kt     # Registro de sintomas
-│   │
-│   └── theme/                            # Tema e cores
-│       ├── Color.kt
-│       ├── Theme.kt
-│       └── Type.kt
-│
-├── 🧠 viewmodel/                         # Lógica de negócio
-│   ├── AuthViewModel.kt                  # Autenticação
-│   ├── ChatViewModel.kt                  # Chat
-│   ├── PerfilViewModel.kt                # Perfil
-│   └── SintomasViewModel.kt              # Sintomas e calendário
-│
-└── 📊 model/                             # Modelos de dados
-    └── SintomaModels.kt                  # Entidades do Firestore
+```bash
+cd admin-web
+npm test
+npm run typecheck
+npm run build
 ```
 
-### Modelos de Dados (Firestore)
+Os arquivos de produção ficam em `admin-web/dist`.
 
-O aplicativo utiliza as seguintes coleções no Firestore:
+Para Cloudflare Pages, uma configuração possível é:
 
-- **usuario** - Dados básicos do usuário
-- **perfil_usuario** - Informações de saúde e fase de vida
-- **configuracao_usuario** - Preferências e configurações
-- **registro_sintoma** - Sintomas registrados diariamente
-- **ciclo_menstrual** - Dados do ciclo menstrual
-- **dados_gestacao** - Informações de gestação
-- **consulta_prenatal** - Consultas pré-natal
-- **mensagem_chat** - Histórico de conversas
-- **artigo** - Conteúdos educacionais
+```text
+Root directory: admin-web
+Build command: npm run build
+Build output directory: dist
+```
 
----
+O arquivo `public/_redirects` já trata as rotas de uma aplicação SPA.
 
-##  Design
+## Arquitetura de dados
 
-### Paleta de Cores
+A interface não acessa Room, IndexedDB ou autenticação diretamente. Ela depende de contratos como:
 
-- **Rosa Primário** (`#E91E63`) - Elementos principais
-- **Rosa Secundário** (`#F06292`) - Destaques e botões
-- **Rosa Claro** (`#FCE4EC`) - Backgrounds sutis
-- **Light Pink Background** (`#FFF0F5`) - Fundo geral
+- `AuthRepository`;
+- `ProfileRepository`;
+- `SymptomRepository`;
+- `ArticleRepository`;
+- `ChatRepository`;
+- `AdminAuthRepository` no painel.
 
-### Componentes Visuais
+Hoje esses contratos são implementados localmente. No futuro, novas implementações poderão consumir uma API, mantendo os ViewModels e a maior parte das telas.
 
-- **Bottom Navigation Bar** - Navegação principal com 4 seções
-- **Floating Action Button** - Registro rápido de sintomas
-- **Cards** - Apresentação de informações
-- **Calendar Grid** - Visualização mensal customizada
+## Formato compartilhado dos artigos
 
----
+O conteúdo dos artigos não é salvo como HTML livre. Ele usa JSON estruturado compatível com TipTap/ProseMirror e identificado como `tiptap-json-v1`.
 
-##  Funcionalidades Futuras
+Esse formato permite representar parágrafos, títulos, listas, citações, links e outras marcações de forma previsível. O painel sanitiza o documento antes de persistir e o Android interpreta apenas elementos conhecidos.
 
-- [ ] Notificações push para lembretes
-- [ ] Exportação de dados em PDF
-- [ ] Gráficos e estatísticas do ciclo
-- [ ] Modo escuro
-- [ ] Suporte a múltiplos idiomas
-- [ ] Integração com Google Fit
-- [ ] Compartilhamento de dados com médicos
-- [ ] Violentômetro (identificação de violência doméstica)
-- [ ] Localização de UBS próximas
+A especificação detalhada está em [`docs/FORMATO_ARTIGOS.md`](docs/FORMATO_ARTIGOS.md).
 
----
+## Segurança local
 
-##  Como Contribuir
+As medidas implementadas reduzem riscos básicos nesta fase:
 
-Contribuições são bem-vindas! Siga os passos abaixo:
+- senhas não são salvas em texto puro;
+- cada senha usa salt aleatório;
+- Android e painel usam derivação PBKDF2;
+- links de artigos são limitados a HTTP/HTTPS;
+- nós desconhecidos do documento são removidos no painel;
+- segredos, keystores, `.env`, `google-services.json`, builds e pastas internas da IDE são ignorados pelo Git;
+- o Android bloqueia tráfego HTTP em texto claro por padrão;
+- o backup Android foi desabilitado para evitar cópia automática dos dados locais.
 
-1. **Fork** o projeto
-2. Crie uma **branch** para sua feature (`git checkout -b feature/MinhaFeature`)
-3. **Commit** suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
-4. **Push** para a branch (`git push origin feature/MinhaFeature`)
-5. Abra um **Pull Request**
+Essas medidas não transformam o armazenamento local em um backend seguro. Uma versão multiusuário deverá usar autenticação e autorização no servidor, HTTPS, gestão de sessão, logs e regras de acesso.
 
-### Diretrizes
+## Testes e integração contínua
 
-- Siga os padrões de código Kotlin
-- Mantenha a arquitetura MVVM
-- Adicione comentários em código complexo
-- Teste suas alterações antes de enviar
-- Atualize a documentação se necessário
+O workflow `.github/workflows/ci.yml` executa:
 
----
+- testes unitários Android;
+- geração do APK de depuração;
+- testes Vitest do painel;
+- build de produção do painel;
+- upload do APK, relatórios e `dist` como artefatos do GitHub Actions quando o build é aprovado.
 
-##  Licença
+## Documentação adicional
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+- [`docs/AUDITORIA_INICIAL.md`](docs/AUDITORIA_INICIAL.md): problemas encontrados na versão anterior e estratégia adotada;
+- [`docs/FORMATO_ARTIGOS.md`](docs/FORMATO_ARTIGOS.md): contrato do conteúdo estruturado;
+- [`admin-web/README.md`](admin-web/README.md): detalhes específicos do painel;
+- [`CHANGELOG.md`](CHANGELOG.md): resumo das mudanças.
 
----
+## Próximas evoluções recomendadas
 
-##  Autores
-
-Estudantes do curso de SI da instituição Unifebe, no qual são: Leonardo Petri Hammer, Eduardo Tinti, Marlon Albino, Bruno Wozniak, Mario Reis
-
----
-
-##  Contato e Suporte
-
-- **Issues**: [GitHub Issues](https://github.com/seu-usuario/minhasaudefeminina/issues)
-- **Discussões**: [GitHub Discussions](https://github.com/seu-usuario/minhasaudefeminina/discussions)
-
----
-
-##  Aviso Importante
-
-**Este aplicativo tem fins educacionais e informativos.** As informações fornecidas não substituem avaliação médica profissional. Sempre procure uma Unidade Básica de Saúde (UBS) ou profissional de saúde qualificado para diagnóstico e tratamento.
-
-### Recursos de Emergência
-
-- **Ligue 180** - Central de Atendimento à Mulher
-- **Ligue 190** - Polícia Militar (emergências)
-- **Ligue 192** - SAMU (emergências médicas)
-- **Ligue 188** - CVV (apoio emocional)
-
----
-
-## Referências
-
-- [Ministério da Saúde - Saúde da Mulher](https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/s/saude-da-mulher)
-- [Protocolos da Atenção Básica](https://bvsms.saude.gov.br/bvs/publicacoes/protocolos_atencao_basica_saude_mulheres.pdf)
-- [Caderneta da Gestante](https://bvsms.saude.gov.br/bvs/publicacoes/caderneta_gestante.pdf)
-- [Lei Maria da Penha](http://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm)
-- [Lei 14.443/2022 - Laqueadura](http://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/lei/L14443.htm)
-
----
-
-<div align="center">
-
-
-</div>
+1. Criar uma API compartilhada com autenticação e autorização reais.
+2. Sincronizar artigos publicados com o Android.
+3. Sincronizar dados da usuária somente após definir requisitos de privacidade, consentimento e proteção de dados.
+4. Adicionar recuperação segura de conta no servidor.
+5. Criar migrações versionadas para Room e para o contrato da API.
+6. Ampliar testes instrumentados, testes de interface e acessibilidade.
+7. Submeter conteúdos de saúde a revisão profissional antes de publicação pública.

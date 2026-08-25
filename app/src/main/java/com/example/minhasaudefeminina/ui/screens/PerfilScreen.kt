@@ -1,286 +1,346 @@
 package com.example.minhasaudefeminina.ui.screens
 
+import android.app.DatePickerDialog
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.ListAlt
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.HealthAndSafety
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.example.minhasaudefeminina.ui.theme.*
-import com.example.minhasaudefeminina.viewmodel.PerfilViewModel
 import com.example.minhasaudefeminina.model.FaseVida
+import com.example.minhasaudefeminina.model.SintomaTipo
+import com.example.minhasaudefeminina.model.Usuario
+import com.example.minhasaudefeminina.ui.theme.LightPinkBackground
+import com.example.minhasaudefeminina.ui.theme.RedSintoma
+import com.example.minhasaudefeminina.ui.theme.RosaClaro
+import com.example.minhasaudefeminina.ui.theme.RosaPrimario
+import com.example.minhasaudefeminina.ui.theme.RosaSecundario
+import com.example.minhasaudefeminina.viewmodel.PerfilViewModel
+import com.example.minhasaudefeminina.viewmodel.localDate
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun PerfilScreen(viewModel: PerfilViewModel) {
-    val authViewModel: com.example.minhasaudefeminina.viewmodel.AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val scrollState = rememberScrollState()
-    val faseVida by viewModel.faseVida.collectAsState()
-    val isGestante by viewModel.isGestante.collectAsState()
-    val photoUri by viewModel.photoUri.collectAsState()
-    
-    var showViolentometro by remember { mutableStateOf(false) }
-    var showMinhaConta by remember { mutableStateOf(false) }
+fun PerfilScreen(
+    viewModel: PerfilViewModel,
+    user: Usuario,
+    onOpenAccount: () -> Unit,
+    onOpenViolentometer: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val context = LocalContext.current
+    val profile by viewModel.profile.collectAsStateWithLifecycle()
+    val records by viewModel.registrosSintomas.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.setPhotoUri(it) }
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            viewModel.setPhotoUri(it.toString())
+        }
     }
 
-    if (showViolentometro) {
-        ViolentometroScreen(onVoltar = { showViolentometro = false })
-    } else if (showMinhaConta) {
-        MinhaContaScreen(viewModel = authViewModel, onVoltar = { showMinhaConta = false })
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(LightPinkBackground)
-                .verticalScroll(scrollState)
-        ) {
-            // Header
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 1.dp) {
-                Box(modifier = Modifier.padding(15.dp), contentAlignment = Alignment.Center) {
-                    Text("♀ Minha Saúde Feminina", fontSize = 20.sp, color = RosaPrimario, fontWeight = FontWeight.Bold)
-                }
+    LaunchedEffect(message) {
+        message?.let {
+            snackbar.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+
+    val currentMonthRecords = remember(records) {
+        records.filter { YearMonth.from(it.localDate()) == YearMonth.now() }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(LightPinkBackground)) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 2.dp) {
+                Text(
+                    "♀ Minha Saúde Feminina",
+                    modifier = Modifier.padding(16.dp),
+                    color = RosaPrimario,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
             }
 
-            Column(modifier = Modifier.padding(20.dp)) {
-                // User Info
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(contentAlignment = Alignment.BottomEnd) {
-                            Surface(
-                                modifier = Modifier.size(110.dp),
-                                shape = CircleShape,
-                                color = RosaClaro,
-                                border = androidx.compose.foundation.BorderStroke(3.dp, RosaSecundario)
-                            ) {
-                                if (photoUri != null) {
-                                    AsyncImage(
-                                        model = photoUri,
-                                        contentDescription = "Foto de Perfil",
-                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Person, null, modifier = Modifier.size(60.dp), tint = RosaPrimario)
-                                    }
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(contentAlignment = Alignment.BottomEnd) {
+                        Surface(
+                            modifier = Modifier.size(108.dp),
+                            shape = CircleShape,
+                            color = RosaClaro,
+                            border = androidx.compose.foundation.BorderStroke(3.dp, RosaSecundario)
+                        ) {
+                            if (profile.fotoUri != null) {
+                                AsyncImage(
+                                    model = profile.fotoUri,
+                                    contentDescription = "Foto de perfil",
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Person, null, tint = RosaPrimario, modifier = Modifier.size(56.dp))
                                 }
                             }
-                            FloatingActionButton(
-                                onClick = { launcher.launch("image/*") },
-                                modifier = Modifier.size(36.dp),
-                                containerColor = RosaSecundario,
-                                contentColor = Color.White,
-                                shape = CircleShape
-                            ) { Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(18.dp)) }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Sua Conta", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        IconButton(
+                            onClick = { photoLauncher.launch(arrayOf("image/*")) },
+                            modifier = Modifier.size(38.dp).background(RosaSecundario, CircleShape)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, "Escolher foto", tint = Color.White, modifier = Modifier.size(19.dp))
+                        }
                     }
+                    Text(user.nome, modifier = Modifier.padding(top = 10.dp), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    Text(user.email, color = Color.Gray, fontSize = 13.sp)
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // --- BOTÃO MINHA CONTA ---
                 Card(
-                    onClick = { showMinhaConta = true },
+                    onClick = onOpenAccount,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(15.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(15.dp)
                 ) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Settings, null, tint = RosaSecundario)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Gerenciar Minha Conta", fontWeight = FontWeight.Medium)
-                        Spacer(modifier = Modifier.weight(1f))
+                        Text("Gerenciar minha conta", modifier = Modifier.weight(1f).padding(start = 12.dp), fontWeight = FontWeight.Medium)
                         Icon(Icons.Default.ChevronRight, null, tint = Color.LightGray)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // --- GESTANTE TRACKER (Se ativo) ---
-                if (isGestante) {
-                    SectionCard(title = "Trilha da Gestante", icon = Icons.Default.ChildCare) {
-                        Column {
-                            Text("Você está na 24ª semana", fontWeight = FontWeight.Bold, color = RosaPrimario)
-                            LinearProgressIndicator(
-                                progress = { 0.6f },
-                                modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
-                                color = RosaSecundario,
-                                trackColor = RosaClaro
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Próxima consulta: 15/06 na UBS", fontSize = 13.sp, color = Color.Gray)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Fase da Vida Section
-                SectionCard(title = "Fase da Vida", icon = Icons.AutoMirrored.Filled.ListAlt) {
-                    val fases = FaseVida.entries.chunked(2)
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        fases.forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                row.forEach { item ->
-                                    val isSelected = faseVida == item
-                                    val icon = when(item) {
-                                        FaseVida.ADOLESCENCIA -> Icons.Default.School
-                                        FaseVida.IDADE_REPRODUTIVA -> Icons.Default.Favorite
-                                        FaseVida.GESTACAO -> Icons.Default.ChildCare
-                                        FaseVida.CLIMATERIO -> Icons.Default.WbSunny
-                                        FaseVida.MENOPAUSA -> Icons.Default.SelfImprovement
-                                        FaseVida.SENESCENCIA -> Icons.Default.Spa
-                                    }
-                                    FaseItem(
-                                        label = item.label,
-                                        icon = icon,
-                                        isSelected = isSelected,
-                                        onClick = { viewModel.setFaseVida(item) },
-                                        modifier = Modifier.weight(1f)
+                ProfileSection("Fase da vida", Icons.Default.Favorite) {
+                    FaseVida.entries.chunked(2).forEach { row ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { stage ->
+                                val selected = stage == profile.faseVida
+                                Surface(
+                                    onClick = { viewModel.setFaseVida(stage) },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (selected) RosaClaro else Color.White,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (selected) RosaSecundario else Color.LightGray.copy(alpha = 0.45f)
                                     )
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            stage.label,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (selected) RosaPrimario else Color.DarkGray
+                                        )
+                                    }
                                 }
                             }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Estou gestante", modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = profile.estaGestante,
+                            onCheckedChange = viewModel::setGestante,
+                            colors = SwitchDefaults.colors(checkedTrackColor = RosaSecundario)
+                        )
+                    }
+                    if (profile.estaGestante) {
+                        Text(
+                            "Ative esta opção apenas para personalizar o perfil. O app não calcula idade gestacional sem dados clínicos.",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                ProfileSection("Exames e acompanhamento", Icons.Default.HealthAndSafety) {
+                    ExamDateRow(
+                        label = "Último Papanicolau",
+                        timestamp = profile.dataPapanicolau,
+                        onChoose = {
+                            showProfileDatePicker(context, profile.dataPapanicolau, viewModel::setPapanicolauDate)
+                        },
+                        onClear = { viewModel.setPapanicolauDate(null) }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    ExamDateRow(
+                        label = "Última mamografia",
+                        timestamp = profile.dataMamografia,
+                        onChoose = {
+                            showProfileDatePicker(context, profile.dataMamografia, viewModel::setMamografiaDate)
+                        },
+                        onClear = { viewModel.setMamografiaDate(null) }
+                    )
+                }
 
-                // Relatório de Sintomas (DINÂMICO)
-                val registros by viewModel.registrosSintomas.collectAsState()
-                
-                SectionCard(title = "Relatório do Mês", icon = Icons.Default.BarChart) {
-                    val contagemSintomas = registros.groupBy { it.tipo }
-                        .mapValues { it.value.size }
-                    
-                    if (contagemSintomas.isEmpty()) {
-                        Text("Nenhum sintoma registrado neste mês.", fontSize = 14.sp, color = Color.Gray)
+                ProfileSection("Relatório deste mês", Icons.Default.BarChart) {
+                    val counts = currentMonthRecords.groupingBy { it.tipo }.eachCount()
+                    if (counts.isEmpty()) {
+                        Text("Nenhum sintoma registrado neste mês.", color = Color.Gray, fontSize = 14.sp)
                     } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            contagemSintomas.forEach { (tipo, qtd) ->
-                                val enumTipo = try { com.example.minhasaudefeminina.model.SintomaTipo.valueOf(tipo) } catch(e: Exception) { null }
-                                ReportItem(
-                                    label = enumTipo?.label ?: tipo,
-                                    count = qtd,
-                                    color = getSintomaColor(tipo)
-                                )
+                        counts.entries.sortedByDescending { it.value }.forEach { (type, count) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(Modifier.size(9.dp).background(getSintomaColor(type), CircleShape))
+                                Text(type.label, modifier = Modifier.weight(1f).padding(start = 9.dp))
+                                Text("$count", color = Color.Gray)
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Settings
-                SectionCard(title = "Configurações", icon = Icons.Default.Settings) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Estou gestante", modifier = Modifier.weight(1f))
-                        Switch(checked = isGestante, onCheckedChange = { viewModel.setGestante(it) }, colors = SwitchDefaults.colors(checkedTrackColor = RosaSecundario))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 Button(
-                    onClick = { showViolentometro = true },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    onClick = onOpenViolentometer,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RedSintoma),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(13.dp)
                 ) {
                     Icon(Icons.Default.Warning, null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ver Violentômetro", fontWeight = FontWeight.Bold)
+                    Text("Ver Violentômetro", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Logout (Padronizado)
-                TextButton(
-                    onClick = { viewModel.signOut() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = RosaPrimario)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Sair da Conta", color = RosaPrimario, fontWeight = FontWeight.Bold)
-                    }
+                TextButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = RosaPrimario)
+                    Text("Sair da conta", modifier = Modifier.padding(start = 8.dp), color = RosaPrimario, fontWeight = FontWeight.Bold)
                 }
-
-                Spacer(modifier = Modifier.height(100.dp))
+                Spacer(Modifier.height(100.dp))
             }
         }
+        SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
-fun SectionCard(title: String, icon: ImageVector, content: @Composable () -> Unit) {
+private fun ProfileSection(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(15.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(32.dp).background(RosaClaro, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, modifier = Modifier.size(18.dp), tint = RosaPrimario)
+                Box(Modifier.size(34.dp).background(RosaClaro, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, modifier = Modifier.size(19.dp), tint = RosaPrimario)
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = RosaPrimario)
+                Text(title, modifier = Modifier.padding(start = 10.dp), color = RosaPrimario, fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             content()
         }
     }
 }
 
 @Composable
-fun FaseItem(label: String, icon: ImageVector, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(60.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) RosaClaro else Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) RosaSecundario else Color.LightGray.copy(alpha = 0.3f))
-    ) {
-        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, modifier = Modifier.size(18.dp), tint = if (isSelected) RosaPrimario else Color.Gray)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) RosaPrimario else Color.Black)
+private fun ExamDateRow(label: String, timestamp: Long?, onChoose: () -> Unit, onClear: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.DateRange, null, tint = RosaSecundario)
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 10.dp)) {
+            Text(label, fontWeight = FontWeight.Medium)
+            Text(
+                timestamp?.let(::formatProfileDate) ?: "Não informado",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+        }
+        TextButton(onClick = onChoose) { Text(if (timestamp == null) "Adicionar" else "Alterar") }
+        if (timestamp != null) {
+            IconButton(onClick = onClear) { Icon(Icons.Default.ChevronRight, "Limpar data", tint = Color.LightGray) }
         }
     }
 }
 
-@Composable
-fun ReportItem(label: String, count: Int, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Text("$count registros", fontSize = 12.sp, color = Color.Gray)
-    }
+private fun showProfileDatePicker(
+    context: android.content.Context,
+    currentTimestamp: Long?,
+    onSelected: (Long?) -> Unit
+) {
+    val current = currentTimestamp?.let {
+        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+    } ?: LocalDate.now()
+    DatePickerDialog(
+        context,
+        { _, year, month, day ->
+            onSelected(
+                LocalDate.of(year, month + 1, day)
+                    .atTime(12, 0)
+                    .atZone(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+            )
+        },
+        current.year,
+        current.monthValue - 1,
+        current.dayOfMonth
+    ).apply { datePicker.maxDate = System.currentTimeMillis() }.show()
 }
+
+private fun formatProfileDate(timestamp: Long): String = Instant.ofEpochMilli(timestamp)
+    .atZone(ZoneId.systemDefault())
+    .toLocalDate()
+    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))

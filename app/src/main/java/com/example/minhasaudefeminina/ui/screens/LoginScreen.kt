@@ -1,52 +1,97 @@
 package com.example.minhasaudefeminina.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.minhasaudefeminina.domain.validation.InputValidators
 import com.example.minhasaudefeminina.ui.theme.BackgroundFeminino
 import com.example.minhasaudefeminina.ui.theme.RosaClaro
 import com.example.minhasaudefeminina.ui.theme.RosaPrimario
 import com.example.minhasaudefeminina.ui.theme.RosaSecundario
-import com.example.minhasaudefeminina.viewmodel.AuthState
 import com.example.minhasaudefeminina.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreen(viewModel: AuthViewModel) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var isSignUp by remember { mutableStateOf(false) }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var confirmPasswordVisible by remember { mutableStateOf(false) }
-
-    // Validações simples para ativar/desativar o botão
-    val isEmailValid = email.contains("@") && email.contains(".")
-    val isPasswordValid = password.length >= 6
-    val passwordsMatch = if (isSignUp) password == confirmPassword else true
-    val isFormValid = isEmailValid && isPasswordValid && passwordsMatch
-
-    val authState by viewModel.authState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(authState) {
-        if (authState is AuthState.Error) {
-            snackbarHostState.showSnackbar((authState as AuthState.Error).message)
-            viewModel.resetState()
+    var isSignUp by rememberSaveable { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmVisible by rememberSaveable { mutableStateOf(false) }
+    var attemptedSubmit by rememberSaveable { mutableStateOf(false) }
+
+    val nameError = if (isSignUp) InputValidators.nameError(name) else null
+    val emailError = InputValidators.emailError(email)
+    val passwordError = InputValidators.passwordError(password)
+    val confirmationError = if (isSignUp && password != confirmPassword) "As senhas não conferem." else null
+    val formValid = emailError == null && passwordError == null &&
+        (!isSignUp || (nameError == null && confirmationError == null))
+
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeMessage()
         }
+    }
+
+    fun submit() {
+        attemptedSubmit = true
+        focusManager.clearFocus()
+        if (!formValid) return
+        if (isSignUp) viewModel.createAccount(name, email, password)
+        else viewModel.login(email, password)
     }
 
     Scaffold(
@@ -57,146 +102,181 @@ fun LoginScreen(viewModel: AuthViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = if (isSignUp) "Criar Conta" else "Bem-vinda de volta",
+                text = "Minha Saúde Feminina",
                 fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = RosaPrimario
             )
             Text(
-                text = "Minha Saúde Feminina",
-                fontSize = 16.sp,
+                text = if (isSignUp) "Crie sua conta local" else "Bem-vinda de volta",
                 color = RosaSecundario,
-                modifier = Modifier.padding(bottom = 32.dp)
+                modifier = Modifier.padding(top = 6.dp, bottom = 24.dp)
             )
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                placeholder = { Text("exemplo@email.com") },
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RosaPrimario,
-                    unfocusedBorderColor = RosaClaro
-                ),
-                isError = email.isNotEmpty() && !isEmailValid
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text(if (isSignUp) "Senha (mín. 6 caracteres)" else "Senha") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = image, contentDescription = "Toggle password visibility", tint = RosaPrimario)
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RosaPrimario,
-                    unfocusedBorderColor = RosaClaro
-                )
-            )
-
-            if (isSignUp) {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    label = { Text("Confirmar Senha") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        val image = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                            Icon(imageVector = image, contentDescription = "Toggle confirm password visibility", tint = RosaPrimario)
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = RosaPrimario,
-                        unfocusedBorderColor = RosaClaro
-                    ),
-                    isError = confirmPassword.isNotEmpty() && !passwordsMatch
-                )
-                if (confirmPassword.isNotEmpty() && !passwordsMatch) {
-                    Text(
-                        text = "As senhas não conferem",
-                        color = Color.Red,
-                        fontSize = 12.sp,
-                        modifier = Modifier.align(Alignment.Start).padding(start = 8.dp, top = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            val isLoading = authState is AuthState.Loading
-            Button(
-                onClick = {
-                    if (isSignUp) viewModel.signUp(email, password)
-                    else viewModel.login(email, password)
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = !isLoading && isFormValid,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RosaPrimario,
-                    disabledContainerColor = RosaClaro.copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(28.dp)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(18.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text(if (isSignUp) "Cadastrar" else "Entrar", fontSize = 18.sp)
-                }
-            }
+                Column(modifier = Modifier.padding(20.dp)) {
+                    if (isSignUp) {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it.take(80) },
+                            label = { Text("Nome") },
+                            singleLine = true,
+                            isError = attemptedSubmit && nameError != null,
+                            supportingText = {
+                                if (attemptedSubmit && nameError != null) Text(nameError)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            colors = fieldColors()
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
 
-            // Botão do Google (Apenas visual conforme solicitado)
-            if (!isSignUp) {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = { /* Lógica do Google será implementada conforme necessidade */ },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, RosaClaro),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Ícone do Google simulado com o "G" colorido
-                        Text("G", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4285F4))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Entrar com Google", fontSize = 16.sp)
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it.take(254) },
+                        label = { Text("E-mail") },
+                        placeholder = { Text("exemplo@email.com") },
+                        singleLine = true,
+                        isError = attemptedSubmit && emailError != null,
+                        supportingText = {
+                            if (attemptedSubmit && emailError != null) Text(emailError)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        colors = fieldColors()
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it.take(128) },
+                        label = { Text("Senha") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (passwordVisible) "Ocultar senha" else "Mostrar senha"
+                                )
+                            }
+                        },
+                        isError = attemptedSubmit && passwordError != null,
+                        supportingText = {
+                            if (attemptedSubmit && passwordError != null) Text(passwordError)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = if (isSignUp) ImeAction.Next else ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                        colors = fieldColors()
+                    )
+
+                    if (isSignUp) {
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = confirmPassword,
+                            onValueChange = { confirmPassword = it.take(128) },
+                            label = { Text("Confirmar senha") },
+                            singleLine = true,
+                            visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { confirmVisible = !confirmVisible }) {
+                                    Icon(
+                                        if (confirmVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (confirmVisible) "Ocultar confirmação" else "Mostrar confirmação"
+                                    )
+                                }
+                            },
+                            isError = attemptedSubmit && confirmationError != null,
+                            supportingText = {
+                                if (attemptedSubmit && confirmationError != null) Text(confirmationError)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { submit() }),
+                            colors = fieldColors()
+                        )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = ::submit,
+                        enabled = !state.isLoading,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(27.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RosaPrimario)
+                    ) {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.height(24.dp))
+                        } else {
+                            Text(if (isSignUp) "Criar conta" else "Entrar", fontSize = 17.sp)
+                        }
                     }
                 }
             }
 
             TextButton(
-                onClick = { 
-                    isSignUp = !isSignUp 
+                onClick = {
+                    isSignUp = !isSignUp
+                    attemptedSubmit = false
                     confirmPassword = ""
                 },
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = 10.dp)
             ) {
                 Text(
-                    text = if (isSignUp) "Já tem uma conta? Entre aqui" else "Não tem conta? Cadastre-se",
+                    if (isSignUp) "Já possui conta? Entrar" else "Ainda não possui conta? Cadastrar",
                     color = RosaSecundario
                 )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                colors = CardDefaults.cardColors(containerColor = RosaClaro.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = RosaPrimario)
+                    Text(
+                        text = "Modo local: conta e dados ficam somente neste aparelho. A senha não é salva em texto puro, mas esta autenticação temporária não substitui um servidor seguro.",
+                        modifier = Modifier.padding(start = 10.dp),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = Color.DarkGray
+                    )
+                }
             }
         }
     }
 }
+
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = RosaPrimario,
+    unfocusedBorderColor = RosaClaro,
+    focusedLabelColor = RosaPrimario
+)

@@ -1,143 +1,153 @@
 package com.example.minhasaudefeminina.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.minhasaudefeminina.data.repository.SymptomRepository
 import com.example.minhasaudefeminina.model.RegistroSintoma
 import com.example.minhasaudefeminina.model.SintomaTipo
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.util.*
+import java.time.temporal.ChronoUnit
+import java.util.UUID
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class CalendarDayType {
-    MENSTRUACAO, FERTIL, OVULACAO, SINTOMA, HOJE, SELECIONADO
+    MENSTRUACAO,
+    SINTOMA,
+    HOJE
 }
 
-sealed class SalvarState {
-    object Idle : SalvarState()
-    object Carregando : SalvarState()
-    object Sucesso : SalvarState()
-    data class Erro(val mensagem: String) : SalvarState()
+sealed interface SalvarState {
+    data object Idle : SalvarState
+    data object Carregando : SalvarState
+    data class Sucesso(val message: String) : SalvarState
+    data class Erro(val mensagem: String) : SalvarState
 }
 
-class SintomasViewModel : ViewModel() {
+data class CycleSummary(
+    val nextExpectedDate: LocalDate? = null,
+    val lateDays: Int = 0
+)
 
-    private val dbUrl = "https://device-streaming-9c4db877-default-rtdb.firebaseio.com/"
-    private val auth = try { FirebaseAuth.getInstance() } catch(e: Exception) { null }
-    private val db = try { 
-        FirebaseDatabase.getInstance(dbUrl).reference 
-    } catch (e: Exception) { null }
-
-    private val _alertas = MutableStateFlow<List<String>>(emptyList())
-    val alertas: StateFlow<List<String>> = _alertas
-
-    private val _salvarState = MutableStateFlow<SalvarState>(SalvarState.Idle)
-    val salvarState: StateFlow<SalvarState> = _salvarState
+class SintomasViewModel(
+    private val repository: SymptomRepository,
+    private val userId: String
+) : ViewModel() {
+    val registrosSintomas: StateFlow<List<RegistroSintoma>> = repository.observeRecords(userId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _mesExibido = MutableStateFlow(YearMonth.now())
-    val mesExibido: StateFlow<YearMonth> = _mesExibido
+    val mesExibido: StateFlow<YearMonth> = _mesExibido.asStateFlow()
 
-    private val _registrosSintomas = MutableStateFlow<List<RegistroSintoma>>(emptyList())
-    val registrosSintomas: StateFlow<List<RegistroSintoma>> = _registrosSintomas
-    
-    private val _ultimaMenstruacao = MutableStateFlow<LocalDate?>(null)
-    private val duracaoCicloMedia = 28
+    private val _salvarState = MutableStateFlow<SalvarState>(SalvarState.Idle)
+    val salvarState: StateFlow<SalvarState> = _salvarState.asStateFlow()
 
-    init {
-        carregarRegistros()
-    }
+    val cycleSummary: StateFlow<CycleSummary> = registrosSintomas
+        .map(::calculateCycleSummary)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CycleSummary())
 
-    private fun carregarRegistros() {
-        val userId = auth?.currentUser?.uid ?: return
-        
-        db?.child("usuarios")?.child(userId)?.child("registros_sintomas")
-            ?.addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val lista = mutableListOf<RegistroSintoma>()
-                    snapshot.children.forEach { child ->
-                        try {
-                            val registro = child.getValue(RegistroSintoma::class.java)
-                            if (registro != null) lista.add(registro)
-                        } catch (e: Exception) {
-                            Log.e("SintomasViewModel", "Erro conversao: ${e.message}")
-                        }
-                    }
-                    _registrosSintomas.value = lista
-                    
-                    // Ultima menstruação para calculos
-                    val ultimaM = lista.filter { it.tipo == SintomaTipo.MENSTRUACAO.name }
-                        .maxByOrNull { it.data_timestamp }
-                    
-                    ultimaM?.let {
-                        _ultimaMenstruacao.value = Instant.ofEpochMilli(it.data_timestamp)
-                            .atZone(ZoneId.systemDefault()).toLocalDate()
-                    }
-                }
+    fun mesAnterior() = _mesExibido.update { it.minusMonths(1) }
+    fun mesProximo() = _mesExibido.update { it.plusMonths(1) }
 
-                override fun onCancelled(error: DatabaseError) {
-                    Log.e("SintomasViewModel", "Erro Database: ${error.message}")
-                }
-            })
-    }
-
-    fun mesAnterior() { _mesExibido.value = _mesExibido.value.minusMonths(1) }
-    fun mesProximo() { _mesExibido.value = _mesExibido.value.plusMonths(1) }
-
-    fun calcularDiasAtraso(): Int {
-        val ultima = _ultimaMenstruacao.value ?: return 0
-        val dataEsperada = ultima.plusDays(duracaoCicloMedia.toLong())
-        val hoje = LocalDate.now()
-        return if (hoje.isAfter(dataEsperada)) {
-            java.time.temporal.ChronoUnit.DAYS.between(dataEsperada, hoje).toInt()
-        } else 0
-    }
+    fun recordForId(recordId: String?): RegistroSintoma? =
+        recordId?.let { id -> registrosSintomas.value.firstOrNull { it.id == id } }
 
     fun getTiposParaDia(data: LocalDate): List<CalendarDayType> {
-        val tipos = mutableListOf<CalendarDayType>()
-        if (data == LocalDate.now()) tipos.add(CalendarDayType.HOJE)
-
-        val registrosNoDia = _registrosSintomas.value.filter { registro ->
-            val dataRegistro = Instant.ofEpochMilli(registro.data_timestamp)
-                .atZone(ZoneId.systemDefault()).toLocalDate()
-            dataRegistro == data
-        }
-
-        registrosNoDia.forEach { registro ->
-            if (registro.tipo == SintomaTipo.MENSTRUACAO.name) tipos.add(CalendarDayType.MENSTRUACAO)
-            else if (!tipos.contains(CalendarDayType.SINTOMA)) tipos.add(CalendarDayType.SINTOMA)
-        }
-
-        return tipos
+        val result = mutableListOf<CalendarDayType>()
+        if (data == LocalDate.now()) result += CalendarDayType.HOJE
+        val records = registrosSintomas.value.filter { it.localDate() == data }
+        if (records.any { it.tipo == SintomaTipo.MENSTRUACAO }) result += CalendarDayType.MENSTRUACAO
+        if (records.any { it.tipo != SintomaTipo.MENSTRUACAO }) result += CalendarDayType.SINTOMA
+        return result
     }
 
-    fun salvarRegistro(registro: RegistroSintoma) {
-        val userId = auth?.currentUser?.uid ?: return
+    fun saveRecord(
+        recordId: String?,
+        date: LocalDate,
+        type: SintomaTipo?,
+        intensity: Int,
+        notes: String
+    ) {
+        if (type == null) {
+            _salvarState.value = SalvarState.Erro("Selecione um sintoma.")
+            return
+        }
+        if (date.isAfter(LocalDate.now())) {
+            _salvarState.value = SalvarState.Erro("Não é possível registrar um sintoma no futuro.")
+            return
+        }
+        val existing = recordForId(recordId)
+        val now = System.currentTimeMillis()
+        val record = RegistroSintoma(
+            id = existing?.id ?: UUID.randomUUID().toString(),
+            usuarioId = userId,
+            dataTimestamp = date.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            tipo = type,
+            intensidade = intensity,
+            notas = notes.trim().takeIf(String::isNotEmpty),
+            criadoEm = existing?.criadoEm ?: now,
+            atualizadoEm = now
+        )
         viewModelScope.launch {
             _salvarState.value = SalvarState.Carregando
-            try {
-                val ref = db?.child("usuarios")?.child(userId)?.child("registros_sintomas")?.push()
-                val registroFinal = registro.copy(
-                    id = ref?.key ?: UUID.randomUUID().toString(),
-                    usuario_id = userId,
-                    data_timestamp = System.currentTimeMillis()
-                )
-                ref?.setValue(registroFinal)?.await()
-                _salvarState.value = SalvarState.Sucesso
-            } catch (e: Exception) {
-                Log.e("SintomasViewModel", "Erro salvar: ${e.message}")
-                _salvarState.value = SalvarState.Sucesso // Feedback local
-            }
+            runCatching { repository.saveRecord(record) }
+                .onSuccess {
+                    _salvarState.value = SalvarState.Sucesso(
+                        if (existing == null) "Registro salvo com sucesso." else "Registro atualizado com sucesso."
+                    )
+                }
+                .onFailure { error ->
+                    _salvarState.value = SalvarState.Erro(error.message ?: "Não foi possível salvar o registro.")
+                }
         }
     }
 
-    fun limparAlertas() { _alertas.value = emptyList() }
-    fun resetarSalvarState() { _salvarState.value = SalvarState.Idle }
+    fun deleteRecord(recordId: String) {
+        viewModelScope.launch {
+            _salvarState.value = SalvarState.Carregando
+            runCatching { repository.deleteRecord(userId, recordId) }
+                .onSuccess { _salvarState.value = SalvarState.Sucesso("Registro excluído.") }
+                .onFailure { error ->
+                    _salvarState.value = SalvarState.Erro(error.message ?: "Não foi possível excluir o registro.")
+                }
+        }
+    }
+
+    fun resetSaveState() {
+        _salvarState.value = SalvarState.Idle
+    }
+
+    private fun calculateCycleSummary(records: List<RegistroSintoma>): CycleSummary {
+        val lastPeriod = records
+            .filter { it.tipo == SintomaTipo.MENSTRUACAO }
+            .maxByOrNull { it.dataTimestamp }
+            ?.localDate()
+            ?: return CycleSummary()
+        val expected = lastPeriod.plusDays(28)
+        val today = LocalDate.now()
+        val late = if (today.isAfter(expected)) ChronoUnit.DAYS.between(expected, today).toInt() else 0
+        return CycleSummary(expected, late)
+    }
+
+    companion object {
+        fun factory(repository: SymptomRepository, userId: String): ViewModelProvider.Factory = viewModelFactory {
+            initializer { SintomasViewModel(repository, userId) }
+        }
+    }
 }
+
+fun RegistroSintoma.localDate(): LocalDate = Instant.ofEpochMilli(dataTimestamp)
+    .atZone(ZoneId.systemDefault())
+    .toLocalDate()
