@@ -72,7 +72,7 @@ class SintomasViewModel(
     fun getTiposParaDia(data: LocalDate): List<CalendarDayType> {
         val result = mutableListOf<CalendarDayType>()
         if (data == LocalDate.now()) result += CalendarDayType.HOJE
-        val records = registrosSintomas.value.filter { it.localDate() == data }
+        val records = registrosSintomas.value.filter { it.ocorreNaData(data) }
         if (records.any { it.tipo == SintomaTipo.MENSTRUACAO }) result += CalendarDayType.MENSTRUACAO
         if (records.any { it.tipo != SintomaTipo.MENSTRUACAO }) result += CalendarDayType.SINTOMA
         if (cycleSummary.value.nextExpectedDate == data && CalendarDayType.MENSTRUACAO !in result) {
@@ -84,6 +84,7 @@ class SintomasViewModel(
     fun saveRecord(
         recordId: String?,
         date: LocalDate,
+        endDate: LocalDate?,
         type: SintomaTipo?,
         intensity: Int,
         notes: String
@@ -92,28 +93,46 @@ class SintomasViewModel(
             _salvarState.value = SalvarState.Erro("Selecione um sintoma.")
             return
         }
-        if (date.isAfter(LocalDate.now())) {
+        val today = LocalDate.now()
+        if (date.isAfter(today)) {
             _salvarState.value = SalvarState.Erro("Não é possível registrar um sintoma no futuro.")
             return
         }
+
+        val periodEnd = if (type == SintomaTipo.MENSTRUACAO) endDate ?: date else null
+        if (periodEnd != null && periodEnd.isBefore(date)) {
+            _salvarState.value = SalvarState.Erro("A data de término não pode ser anterior ao início.")
+            return
+        }
+        if (periodEnd != null && periodEnd.isAfter(today)) {
+            _salvarState.value = SalvarState.Erro("A data de término não pode estar no futuro.")
+            return
+        }
+
         val existing = recordForId(recordId)
         val now = System.currentTimeMillis()
         val record = RegistroSintoma(
             id = existing?.id ?: UUID.randomUUID().toString(),
             usuarioId = userId,
-            dataTimestamp = date.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            dataTimestamp = date.toTimestamp(),
             tipo = type,
             intensidade = intensity,
             notas = notes.trim().takeIf(String::isNotEmpty),
             criadoEm = existing?.criadoEm ?: now,
-            atualizadoEm = now
+            atualizadoEm = now,
+            dataFimTimestamp = periodEnd?.toTimestamp()
         )
         viewModelScope.launch {
             _salvarState.value = SalvarState.Carregando
             runCatching { repository.saveRecord(record) }
                 .onSuccess {
+                    val action = if (existing == null) "salvo" else "atualizado"
                     _salvarState.value = SalvarState.Sucesso(
-                        if (existing == null) "Registro salvo com sucesso." else "Registro atualizado com sucesso."
+                        if (type == SintomaTipo.MENSTRUACAO) {
+                            "Período menstrual $action com sucesso."
+                        } else {
+                            "Registro $action com sucesso."
+                        }
                     )
                 }
                 .onFailure { error ->
@@ -138,7 +157,7 @@ class SintomasViewModel(
     }
 
     private fun calculateCycleSummary(records: List<RegistroSintoma>): CycleSummary {
-        val periodDays = records
+        val periodStarts = records
             .asSequence()
             .filter { it.tipo == SintomaTipo.MENSTRUACAO }
             .map { it.localDate() }
@@ -146,12 +165,12 @@ class SintomasViewModel(
             .sorted()
             .toList()
 
-        if (periodDays.isEmpty()) return CycleSummary()
+        if (periodStarts.isEmpty()) return CycleSummary()
 
-        // Varios registros em dias seguidos pertencem a uma mesma menstruacao.
-        // Consideramos um novo ciclo quando existe um intervalo de pelo menos 14 dias.
-        val cycleStarts = mutableListOf(periodDays.first())
-        periodDays.drop(1).forEach { date ->
+        // Mantém compatibilidade com registros antigos, em que cada dia da
+        // menstruação podia ter sido salvo como um registro separado.
+        val cycleStarts = mutableListOf(periodStarts.first())
+        periodStarts.drop(1).forEach { date ->
             if (ChronoUnit.DAYS.between(cycleStarts.last(), date) >= 14) {
                 cycleStarts += date
             }
@@ -192,3 +211,17 @@ class SintomasViewModel(
 fun RegistroSintoma.localDate(): LocalDate = Instant.ofEpochMilli(dataTimestamp)
     .atZone(ZoneId.systemDefault())
     .toLocalDate()
+
+fun RegistroSintoma.localEndDate(): LocalDate? = dataFimTimestamp?.let { timestamp ->
+    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+}
+
+fun RegistroSintoma.ocorreNaData(data: LocalDate): Boolean {
+    val start = localDate()
+    if (tipo != SintomaTipo.MENSTRUACAO) return start == data
+    val end = localEndDate() ?: start
+    return !data.isBefore(start) && !data.isAfter(end)
+}
+
+private fun LocalDate.toTimestamp(): Long =
+    atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
