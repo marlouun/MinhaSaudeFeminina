@@ -2,6 +2,7 @@ import { liveQuery } from 'dexie'
 import { db } from '../db/database'
 import type { Article, ArticleDocument } from '../types/article'
 import { cloneDocument, slugify } from '../utils/article'
+import { sanitizeArticleDocument } from '../utils/document'
 import type { ArticleRepository } from './ArticleRepository'
 
 function document(content: Array<Record<string, unknown>>): ArticleDocument {
@@ -116,7 +117,7 @@ export class LocalArticleRepository implements ArticleRepository {
       category: article.category.trim(),
       tags: [...new Set(article.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 12),
       slug: uniqueSlug,
-      content: cloneDocument(article.content),
+      content: sanitizeArticleDocument(cloneDocument(article.content)),
       updatedAt: now,
       publishedAt: article.status === 'published' ? article.publishedAt ?? now : null,
     }
