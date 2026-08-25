@@ -51,7 +51,8 @@ data class RegistroSintoma(
     val intensidade: Int,
     val notas: String?,
     val criadoEm: Long,
-    val atualizadoEm: Long
+    val atualizadoEm: Long,
+    val dataFimTimestamp: Long? = null
 )
 
 data class MensagemChat(
