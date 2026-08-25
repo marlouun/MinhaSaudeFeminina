@@ -62,7 +62,8 @@ data class SymptomRecordEntity(
     val intensity: Int,
     val notes: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val endTimestamp: Long? = null
 )
 
 @Entity(tableName = "articles", indices = [Index(value = ["slug"], unique = true), Index("status")])
