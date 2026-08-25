@@ -1,12 +1,9 @@
 package com.example.minhasaudefeminina.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -138,7 +135,7 @@ private fun buildRichAnnotatedString(spans: List<RichSpan>): AnnotatedString = b
             SpanStyle(
                 fontWeight = if (span.bold) FontWeight.Bold else null,
                 fontStyle = if (span.italic) FontStyle.Italic else null,
-                textDecoration = decorations.takeIf { it.isNotEmpty() }?.let(TextDecoration::combine),
+                textDecoration = if (decorations.isEmpty()) null else TextDecoration.combine(decorations),
                 color = if (span.link != null) RosaSecundario else Color.Unspecified
             )
         )
