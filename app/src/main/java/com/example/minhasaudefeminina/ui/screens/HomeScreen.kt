@@ -63,10 +63,13 @@ import com.example.minhasaudefeminina.ui.theme.RosaSecundario
 import com.example.minhasaudefeminina.viewmodel.CalendarDayType
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
 import com.example.minhasaudefeminina.viewmodel.localDate
+import com.example.minhasaudefeminina.viewmodel.localEndDate
+import com.example.minhasaudefeminina.viewmodel.ocorreNaData
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 @Composable
@@ -87,7 +90,7 @@ fun HomeScreen(
     }
 
     val selectedRecords = remember(records, selectedDate) {
-        records.filter { it.localDate() == selectedDate }
+        records.filter { it.ocorreNaData(selectedDate) }
     }
     val selectedIsPrediction = cycleSummary.nextExpectedDate == selectedDate &&
         selectedRecords.none { it.tipo == SintomaTipo.MENSTRUACAO }
@@ -156,17 +159,9 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                Modifier
-                                    .size(13.dp)
-                                    .border(2.dp, PurpleSelected, CircleShape)
-                            )
+                            Box(Modifier.size(13.dp).border(2.dp, PurpleSelected, CircleShape))
                             Column(modifier = Modifier.padding(start = 12.dp)) {
-                                Text(
-                                    "Possível próxima menstruação",
-                                    fontWeight = FontWeight.Bold,
-                                    color = RosaPrimario
-                                )
+                                Text("Possível próxima menstruação", fontWeight = FontWeight.Bold, color = RosaPrimario)
                                 Text(
                                     "Esta data é uma estimativa baseada no seu histórico de registros.",
                                     fontSize = 13.sp,
@@ -260,7 +255,7 @@ private fun CalendarCard(
                         Box(modifier = Modifier.weight(1f)) {
                             if (dayNumber in 1..month.lengthOfMonth()) {
                                 val date = month.atDay(dayNumber)
-                                val dayRecords = records.filter { it.localDate() == date }
+                                val dayRecords = records.filter { it.ocorreNaData(date) }
                                 CalendarDay(
                                     day = dayNumber,
                                     types = typesForDay(date),
@@ -283,7 +278,7 @@ private fun CalendarCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(Modifier.size(8.dp).background(RosaPrimario, CircleShape))
-                Text(" Registrado", fontSize = 11.sp, color = Color.Gray)
+                Text(" Período registrado", fontSize = 11.sp, color = Color.Gray)
                 Spacer(Modifier.size(14.dp))
                 Box(Modifier.size(9.dp).border(1.5.dp, PurpleSelected, CircleShape))
                 Text(" Previsão", fontSize = 11.sp, color = Color.Gray)
@@ -307,6 +302,7 @@ private fun CalendarDay(
             .background(
                 when {
                     selected -> PurpleSelected.copy(alpha = 0.18f)
+                    CalendarDayType.MENSTRUACAO in types -> RosaClaro.copy(alpha = 0.55f)
                     CalendarDayType.HOJE in types -> RosaClaro
                     else -> Color.Transparent
                 },
@@ -318,7 +314,7 @@ private fun CalendarDay(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 day.toString(),
-                fontWeight = if (selected || CalendarDayType.HOJE in types) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (selected || CalendarDayType.HOJE in types || CalendarDayType.MENSTRUACAO in types) FontWeight.Bold else FontWeight.Normal,
                 color = if (selected) PurpleSelected else Color.Black
             )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -335,6 +331,7 @@ private fun CalendarDay(
 
 @Composable
 private fun SymptomRecordCard(record: RegistroSintoma, onEdit: (RegistroSintoma) -> Unit) {
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onEdit(record) },
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -344,7 +341,19 @@ private fun SymptomRecordCard(record: RegistroSintoma, onEdit: (RegistroSintoma)
             Box(Modifier.size(12.dp).background(getSintomaColor(record.tipo), CircleShape))
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(record.tipo.label, fontWeight = FontWeight.SemiBold)
-                Text("Intensidade ${record.intensidade}/5", fontSize = 12.sp, color = Color.Gray)
+                if (record.tipo == SintomaTipo.MENSTRUACAO) {
+                    val start = record.localDate()
+                    val end = record.localEndDate() ?: start
+                    val days = ChronoUnit.DAYS.between(start, end).toInt() + 1
+                    Text(
+                        "Período: ${start.format(formatter)} a ${end.format(formatter)} ($days dia(s))",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Text("Intensidade ${record.intensidade}/5", fontSize = 12.sp, color = Color.Gray)
+                } else {
+                    Text("Intensidade ${record.intensidade}/5", fontSize = 12.sp, color = Color.Gray)
+                }
                 record.notas?.let { Text(it, fontSize = 13.sp, color = Color.DarkGray, maxLines = 2) }
             }
             Icon(Icons.Default.Edit, contentDescription = "Editar registro", tint = RosaSecundario)
