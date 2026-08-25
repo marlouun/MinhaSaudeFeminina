@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
@@ -30,7 +31,6 @@ import androidx.compose.material.icons.filled.SentimentDissatisfied
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,6 +84,7 @@ import com.example.minhasaudefeminina.ui.theme.RosaSecundario
 import com.example.minhasaudefeminina.viewmodel.SalvarState
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
 import com.example.minhasaudefeminina.viewmodel.localDate
+import com.example.minhasaudefeminina.viewmodel.localEndDate
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -101,8 +102,10 @@ fun RegistrarSintomaScreen(
     val saveState by viewModel.salvarState.collectAsStateWithLifecycle()
     val existing = remember(records, recordId) { records.firstOrNull { it.id == recordId } }
     val snackbar = remember { SnackbarHostState() }
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
 
     var date by rememberSaveable { mutableStateOf(initialDate) }
+    var endDate by rememberSaveable { mutableStateOf(initialDate) }
     var selectedTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var intensity by rememberSaveable { mutableIntStateOf(3) }
     var notes by rememberSaveable { mutableStateOf("") }
@@ -110,10 +113,12 @@ fun RegistrarSintomaScreen(
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
 
     val selectedType = selectedTypeName?.let { runCatching { SintomaTipo.valueOf(it) }.getOrNull() }
+    val isMenstruation = selectedType == SintomaTipo.MENSTRUACAO
 
     LaunchedEffect(existing?.id) {
         if (existing != null && initializedRecord != existing.id) {
             date = existing.localDate()
+            endDate = existing.localEndDate() ?: date
             selectedTypeName = existing.tipo.name
             intensity = existing.intensidade
             notes = existing.notas.orEmpty()
@@ -136,14 +141,31 @@ fun RegistrarSintomaScreen(
         }
     }
 
-    fun openDatePicker() {
+    fun openStartDatePicker() {
         DatePickerDialog(
             context,
-            { _, year, month, day -> date = LocalDate.of(year, month + 1, day) },
+            { _, year, month, day ->
+                val newDate = LocalDate.of(year, month + 1, day)
+                date = newDate
+                if (endDate.isBefore(newDate)) endDate = newDate
+            },
             date.year,
             date.monthValue - 1,
             date.dayOfMonth
         ).apply {
+            datePicker.maxDate = System.currentTimeMillis()
+        }.show()
+    }
+
+    fun openEndDatePicker() {
+        DatePickerDialog(
+            context,
+            { _, year, month, day -> endDate = LocalDate.of(year, month + 1, day) },
+            endDate.year,
+            endDate.monthValue - 1,
+            endDate.dayOfMonth
+        ).apply {
+            datePicker.minDate = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             datePicker.maxDate = System.currentTimeMillis()
         }.show()
     }
@@ -178,23 +200,52 @@ fun RegistrarSintomaScreen(
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Data do registro", modifier = Modifier.fillMaxWidth(), color = Color.Gray)
+            Text(
+                if (isMenstruation) "Data de início da menstruação" else "Data do registro",
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.Gray
+            )
             OutlinedTextField(
-                value = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                value = date.format(formatter),
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = {
-                    IconButton(onClick = ::openDatePicker) {
+                    IconButton(onClick = ::openStartDatePicker) {
                         Icon(Icons.Default.CalendarMonth, "Escolher data", tint = RosaPrimario)
                     }
                 },
-                modifier = Modifier.fillMaxWidth().clickable(onClick = ::openDatePicker),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = ::openStartDatePicker),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RosaPrimario,
                     unfocusedBorderColor = RosaClaro
                 )
             )
+
+            if (isMenstruation) {
+                Text(
+                    "Data de término da menstruação",
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    color = Color.Gray
+                )
+                OutlinedTextField(
+                    value = endDate.format(formatter),
+                    onValueChange = {},
+                    readOnly = true,
+                    supportingText = { Text("Você pode editar esta data depois, caso a menstruação ainda esteja em andamento.") },
+                    trailingIcon = {
+                        IconButton(onClick = ::openEndDatePicker) {
+                            Icon(Icons.Default.CalendarMonth, "Escolher data de término", tint = RosaPrimario)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = ::openEndDatePicker),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = RosaPrimario,
+                        unfocusedBorderColor = RosaClaro
+                    )
+                )
+            }
 
             Text(
                 "O que você está sentindo?",
@@ -211,7 +262,10 @@ fun RegistrarSintomaScreen(
                         SymptomOption(
                             item = item,
                             selected = selectedType == item.type,
-                            onClick = { selectedTypeName = item.type.name },
+                            onClick = {
+                                selectedTypeName = item.type.name
+                                if (item.type == SintomaTipo.MENSTRUACAO && endDate.isBefore(date)) endDate = date
+                            },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -271,7 +325,16 @@ fun RegistrarSintomaScreen(
 
             val loading = saveState is SalvarState.Carregando
             Button(
-                onClick = { viewModel.saveRecord(recordId, date, selectedType, intensity, notes) },
+                onClick = {
+                    viewModel.saveRecord(
+                        recordId = recordId,
+                        date = date,
+                        endDate = if (isMenstruation) endDate else null,
+                        type = selectedType,
+                        intensity = intensity,
+                        notes = notes
+                    )
+                },
                 enabled = selectedType != null && !loading,
                 modifier = Modifier.fillMaxWidth().height(56.dp).padding(top = 10.dp),
                 shape = RoundedCornerShape(28.dp),
