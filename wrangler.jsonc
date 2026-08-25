@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "minhasaudeadmin",
+  "name": "minhasaudefeminina",
   "compatibility_date": "2026-08-25",
   "assets": {
     "directory": "./admin-web/dist",
