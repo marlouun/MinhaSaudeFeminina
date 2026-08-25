@@ -51,6 +51,10 @@ async function parseError(response: Response): Promise<Error> {
   }
 }
 
+function encodeStoragePath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/')
+}
+
 export async function signInAdmin(email: string, password: string): Promise<SupabaseUser> {
   const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -127,4 +131,25 @@ export async function supabaseRest(path: string, init: RequestInit = {}, require
   })
   if (!response.ok) throw await parseError(response)
   return response
+}
+
+export async function uploadPublicStorageObject(bucket: string, path: string, body: Blob): Promise<string> {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Sua sessão administrativa expirou. Entre novamente.')
+
+  const encodedBucket = encodeURIComponent(bucket)
+  const encodedPath = encodeStoragePath(path)
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodedBucket}/${encodedPath}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': body.type || 'application/octet-stream',
+      'x-upsert': 'true',
+    },
+    body,
+  })
+  if (!response.ok) throw await parseError(response)
+
+  return `${SUPABASE_URL}/storage/v1/object/public/${encodedBucket}/${encodedPath}`
 }
