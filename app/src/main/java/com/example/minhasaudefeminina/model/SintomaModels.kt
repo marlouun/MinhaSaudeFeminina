@@ -1,80 +1,81 @@
 package com.example.minhasaudefeminina.model
 
-import com.google.firebase.database.IgnoreExtraProperties
-import java.util.UUID
-
 enum class FaseVida(val label: String) {
-    ADOLESCENCIA("Adolescência"),
-    IDADE_REPRODUTIVA("Idade Reprodutiva"),
-    GESTACAO("Gestação"),
-    CLIMATERIO("Climatério"),
+    ADOLESCENCIA("Adolescencia"),
+    IDADE_REPRODUTIVA("Idade reprodutiva"),
+    GESTACAO("Gestacao"),
+    CLIMATERIO("Climaterio"),
     MENOPAUSA("Menopausa"),
-    SENESCENCIA("Senescência")
+    SENESCENCIA("Senescencia")
 }
 
 enum class SintomaTipo(val label: String) {
-    MENSTRUACAO("Menstruação"),
-    COLICA("Cólica"),
+    MENSTRUACAO("Menstruacao"),
+    COLICA("Colica"),
     CORRIMENTO("Corrimento"),
     SANGRAMENTO("Sangramento"),
-    SINTOMA_URINARIO("Sintoma Urinário"),
+    SINTOMA_URINARIO("Sintoma urinario"),
     HUMOR_TPM("Humor/TPM"),
     FOGACHOS("Fogachos"),
-    SUOR_NOTURNO("Suor Noturno"),
+    SUOR_NOTURNO("Suor noturno"),
     OUTRO("Outro")
 }
 
-@IgnoreExtraProperties
+enum class ArtigoStatus {
+    RASCUNHO,
+    PUBLICADO
+}
+
 data class Usuario(
-    val id: String = UUID.randomUUID().toString(),
-    val nome: String = "",
-    val email: String = "",
-    val foto_url: String? = null,
-    val criado_em: Long = System.currentTimeMillis()
+    val id: String,
+    val nome: String,
+    val email: String,
+    val criadoEm: Long,
+    val atualizadoEm: Long
 )
 
-@IgnoreExtraProperties
 data class PerfilUsuario(
-    val id: String = UUID.randomUUID().toString(),
-    val usuario_id: String = "",
-    val fase_vida: String = FaseVida.IDADE_REPRODUTIVA.name,
-    val data_papanicolau: Long? = null,
-    val data_mamografia: Long? = null
+    val usuarioId: String,
+    val faseVida: FaseVida = FaseVida.IDADE_REPRODUTIVA,
+    val estaGestante: Boolean = false,
+    val dataPapanicolau: Long? = null,
+    val dataMamografia: Long? = null,
+    val fotoUri: String? = null
 )
 
-@IgnoreExtraProperties
 data class RegistroSintoma(
-    val id: String = UUID.randomUUID().toString(),
-    val usuario_id: String = "",
-    val data_timestamp: Long = System.currentTimeMillis(),
-    val tipo: String = "",
-    val intensidade: Int = 1,
-    val notas: String? = null
+    val id: String,
+    val usuarioId: String,
+    val dataTimestamp: Long,
+    val tipo: SintomaTipo,
+    val intensidade: Int,
+    val notas: String?,
+    val criadoEm: Long,
+    val atualizadoEm: Long
 )
 
-@IgnoreExtraProperties
-data class DadosGestacao(
-    val id: String = UUID.randomUUID().toString(),
-    val usuario_id: String = "",
-    val esta_gestante: Boolean = false,
-    val data_dum_timestamp: Long? = null
-)
-
-@IgnoreExtraProperties
 data class MensagemChat(
-    val id: String = UUID.randomUUID().toString(),
-    val usuario_id: String? = null,
-    val sessao_id: String = UUID.randomUUID().toString(),
-    val texto: String = "",
-    val is_usuario: Boolean = true,
-    val enviado_em: Long = System.currentTimeMillis()
+    val id: String,
+    val usuarioId: String,
+    val sessaoId: String,
+    val texto: String,
+    val isUsuario: Boolean,
+    val enviadoEm: Long
 )
 
 data class Artigo(
-    val id: String = "",
-    val categoria: String = "",
-    val titulo: String = "",
-    val resumo: String = "",
-    val conteudo: String = "",
-    val referencias: List<String> = emptyList()
+    val id: String,
+    val slug: String,
+    val categoria: String,
+    val titulo: String,
+    val subtitulo: String,
+    val resumo: String,
+    val conteudoJson: String,
+    val autor: String,
+    val tags: List<String>,
+    val capaUri: String?,
+    val status: ArtigoStatus,
+    val criadoEm: Long,
+    val atualizadoEm: Long,
+    val publicadoEm: Long?
 )
