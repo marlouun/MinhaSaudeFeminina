@@ -1,4 +1,4 @@
-const SUPABASE_URL = 'https://fjkbdpifozkfacgqoqixl.supabase.co'
+const SUPABASE_URL = 'https://fjkbdpifozkfacgoqixl.supabase.co'
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_fqM-bD0er0xbJ_CeE9kLiQ_pWUBtd-t'
 const SESSION_KEY = 'minha-saude-feminina-supabase-admin-session-v1'
 
