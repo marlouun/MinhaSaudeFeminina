@@ -290,7 +290,8 @@ private fun SymptomRecordEntity.toDomain() = RegistroSintoma(
     intensidade = intensity,
     notas = notes,
     criadoEm = createdAt,
-    atualizadoEm = updatedAt
+    atualizadoEm = updatedAt,
+    dataFimTimestamp = endTimestamp
 )
 private fun RegistroSintoma.toEntity() = SymptomRecordEntity(
     id = id,
@@ -300,7 +301,8 @@ private fun RegistroSintoma.toEntity() = SymptomRecordEntity(
     intensity = intensidade,
     notes = notas?.trim()?.takeIf(String::isNotEmpty),
     createdAt = criadoEm,
-    updatedAt = atualizadoEm
+    updatedAt = atualizadoEm,
+    endTimestamp = dataFimTimestamp
 )
 private fun ArticleEntity.toDomain() = Artigo(
     id = id,
