@@ -58,6 +58,7 @@ import com.example.minhasaudefeminina.viewmodel.AuthViewModel
 import com.example.minhasaudefeminina.viewmodel.ChatViewModel
 import com.example.minhasaudefeminina.viewmodel.PerfilViewModel
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
+import com.example.minhasaudefeminina.viewmodel.localDate
 import java.time.LocalDate
 
 private object Routes {
@@ -175,10 +176,10 @@ fun AppNavigation(
                 )
             }
             composable(Routes.ACCOUNT) {
-                MinhaContaScreen(viewModel = authViewModel, onVoltar = navController::popBackStack)
+                MinhaContaScreen(viewModel = authViewModel, onVoltar = { navController.popBackStack() })
             }
             composable(Routes.VIOLENTOMETER) {
-                ViolentometroScreen(onVoltar = navController::popBackStack)
+                ViolentometroScreen(onVoltar = { navController.popBackStack() })
             }
             composable(
                 route = Routes.SYMPTOM_PATTERN,
@@ -193,8 +194,8 @@ fun AppNavigation(
                     viewModel = symptomViewModel,
                     initialDate = date,
                     recordId = recordId,
-                    onVoltar = navController::popBackStack,
-                    onFinished = navController::popBackStack
+                    onVoltar = { navController.popBackStack() },
+                    onFinished = { navController.popBackStack() }
                 )
             }
             composable(
@@ -204,7 +205,7 @@ fun AppNavigation(
                 ArticleDetailScreen(
                     viewModel = articleViewModel,
                     articleId = entry.arguments?.getString("articleId").orEmpty(),
-                    onVoltar = navController::popBackStack
+                    onVoltar = { navController.popBackStack() }
                 )
             }
         }
