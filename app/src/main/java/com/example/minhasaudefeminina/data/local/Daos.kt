@@ -72,6 +72,9 @@ interface ArticleDao {
 
     @Upsert
     suspend fun upsertAll(articles: List<ArticleEntity>)
+
+    @Query("DELETE FROM articles")
+    suspend fun deleteAll()
 }
 
 @Dao
