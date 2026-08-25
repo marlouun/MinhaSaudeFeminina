@@ -28,7 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE symptom_records ADD COLUMN endTimestamp INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE symptom_records ADD COLUMN endTimestamp INTEGER")
             }
         }
 
