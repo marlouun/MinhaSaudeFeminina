@@ -14,6 +14,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 
 enum class CalendarDayType {
     MENSTRUACAO,
+    PREVISAO_MENSTRUACAO,
     SINTOMA,
     HOJE
 }
@@ -38,7 +40,10 @@ sealed interface SalvarState {
 
 data class CycleSummary(
     val nextExpectedDate: LocalDate? = null,
-    val lateDays: Int = 0
+    val lateDays: Int = 0,
+    val estimatedCycleDays: Int = 28,
+    val basedOnHistory: Boolean = false,
+    val detectedCycles: Int = 0
 )
 
 class SintomasViewModel(
@@ -70,6 +75,9 @@ class SintomasViewModel(
         val records = registrosSintomas.value.filter { it.localDate() == data }
         if (records.any { it.tipo == SintomaTipo.MENSTRUACAO }) result += CalendarDayType.MENSTRUACAO
         if (records.any { it.tipo != SintomaTipo.MENSTRUACAO }) result += CalendarDayType.SINTOMA
+        if (cycleSummary.value.nextExpectedDate == data && CalendarDayType.MENSTRUACAO !in result) {
+            result += CalendarDayType.PREVISAO_MENSTRUACAO
+        }
         return result
     }
 
@@ -130,15 +138,48 @@ class SintomasViewModel(
     }
 
     private fun calculateCycleSummary(records: List<RegistroSintoma>): CycleSummary {
-        val lastPeriod = records
+        val periodDays = records
+            .asSequence()
             .filter { it.tipo == SintomaTipo.MENSTRUACAO }
-            .maxByOrNull { it.dataTimestamp }
-            ?.localDate()
-            ?: return CycleSummary()
-        val expected = lastPeriod.plusDays(28)
+            .map { it.localDate() }
+            .distinct()
+            .sorted()
+            .toList()
+
+        if (periodDays.isEmpty()) return CycleSummary()
+
+        // Varios registros em dias seguidos pertencem a uma mesma menstruacao.
+        // Consideramos um novo ciclo quando existe um intervalo de pelo menos 14 dias.
+        val cycleStarts = mutableListOf(periodDays.first())
+        periodDays.drop(1).forEach { date ->
+            if (ChronoUnit.DAYS.between(cycleStarts.last(), date) >= 14) {
+                cycleStarts += date
+            }
+        }
+
+        val intervals = cycleStarts.zipWithNext { previous, current ->
+            ChronoUnit.DAYS.between(previous, current).toInt()
+        }.filter { it in 15..60 }
+
+        val basedOnHistory = intervals.isNotEmpty()
+        val estimatedCycleDays = if (basedOnHistory) {
+            intervals.average().roundToInt().coerceIn(15, 60)
+        } else {
+            28
+        }
+
+        val lastPeriodStart = cycleStarts.last()
+        val expected = lastPeriodStart.plusDays(estimatedCycleDays.toLong())
         val today = LocalDate.now()
         val late = if (today.isAfter(expected)) ChronoUnit.DAYS.between(expected, today).toInt() else 0
-        return CycleSummary(expected, late)
+
+        return CycleSummary(
+            nextExpectedDate = expected,
+            lateDays = late,
+            estimatedCycleDays = estimatedCycleDays,
+            basedOnHistory = basedOnHistory,
+            detectedCycles = cycleStarts.size
+        )
     }
 
     companion object {
