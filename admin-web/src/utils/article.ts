@@ -86,7 +86,10 @@ export function parseTags(value: string): string[] {
   const unique = new Map<string, string>()
   for (const part of value.split(',')) {
     const tag = part.trim().replace(/^#/, '').slice(0, 40)
-    if (tag) unique.set(tag.toLocaleLowerCase('pt-BR'), tag)
+    if (!tag) continue
+
+    const normalizedTag = tag.toLocaleLowerCase('pt-BR')
+    if (!unique.has(normalizedTag)) unique.set(normalizedTag, tag)
   }
   return [...unique.values()].slice(0, 12)
 }
