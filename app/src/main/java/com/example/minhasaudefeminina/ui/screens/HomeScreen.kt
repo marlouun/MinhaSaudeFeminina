@@ -1,6 +1,7 @@
 package com.example.minhasaudefeminina.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,6 +89,8 @@ fun HomeScreen(
     val selectedRecords = remember(records, selectedDate) {
         records.filter { it.localDate() == selectedDate }
     }
+    val selectedIsPrediction = cycleSummary.nextExpectedDate == selectedDate &&
+        selectedRecords.none { it.tipo == SintomaTipo.MENSTRUACAO }
 
     Column(modifier = Modifier.fillMaxSize().background(LightPinkBackground)) {
         Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 2.dp) {
@@ -143,7 +146,39 @@ fun HomeScreen(
                 }
             }
 
-            if (selectedRecords.isEmpty()) {
+            if (selectedIsPrediction) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = RosaClaro.copy(alpha = 0.65f)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(13.dp)
+                                    .border(2.dp, PurpleSelected, CircleShape)
+                            )
+                            Column(modifier = Modifier.padding(start = 12.dp)) {
+                                Text(
+                                    "Possível próxima menstruação",
+                                    fontWeight = FontWeight.Bold,
+                                    color = RosaPrimario
+                                )
+                                Text(
+                                    "Esta data é uma estimativa baseada no seu histórico de registros.",
+                                    fontSize = 13.sp,
+                                    color = Color.DarkGray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (selectedRecords.isEmpty() && !selectedIsPrediction) {
                 item {
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.7f))) {
                         Text(
@@ -154,7 +189,7 @@ fun HomeScreen(
                         )
                     }
                 }
-            } else {
+            } else if (selectedRecords.isNotEmpty()) {
                 items(selectedRecords.size, key = { selectedRecords[it].id }) { index ->
                     SymptomRecordCard(selectedRecords[index], onEditRecord)
                 }
@@ -163,7 +198,10 @@ fun HomeScreen(
             item {
                 CycleEstimateCard(
                     nextDate = cycleSummary.nextExpectedDate,
-                    lateDays = cycleSummary.lateDays
+                    lateDays = cycleSummary.lateDays,
+                    estimatedCycleDays = cycleSummary.estimatedCycleDays,
+                    basedOnHistory = cycleSummary.basedOnHistory,
+                    detectedCycles = cycleSummary.detectedCycles
                 )
             }
         }
@@ -237,6 +275,19 @@ private fun CalendarCard(
                     }
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(8.dp).background(RosaPrimario, CircleShape))
+                Text(" Registrado", fontSize = 11.sp, color = Color.Gray)
+                Spacer(Modifier.size(14.dp))
+                Box(Modifier.size(9.dp).border(1.5.dp, PurpleSelected, CircleShape))
+                Text(" Previsão", fontSize = 11.sp, color = Color.Gray)
+            }
         }
     }
 }
@@ -270,7 +321,10 @@ private fun CalendarDay(
                 fontWeight = if (selected || CalendarDayType.HOJE in types) FontWeight.Bold else FontWeight.Normal,
                 color = if (selected) PurpleSelected else Color.Black
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (CalendarDayType.PREVISAO_MENSTRUACAO in types) {
+                    Box(Modifier.size(7.dp).border(1.5.dp, PurpleSelected, CircleShape))
+                }
                 records.take(3).forEach {
                     Box(Modifier.size(4.dp).background(getSintomaColor(it.tipo), CircleShape))
                 }
@@ -299,7 +353,13 @@ private fun SymptomRecordCard(record: RegistroSintoma, onEdit: (RegistroSintoma)
 }
 
 @Composable
-private fun CycleEstimateCard(nextDate: LocalDate?, lateDays: Int) {
+private fun CycleEstimateCard(
+    nextDate: LocalDate?,
+    lateDays: Int,
+    estimatedCycleDays: Int,
+    basedOnHistory: Boolean,
+    detectedCycles: Int
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = RosaClaro.copy(alpha = 0.55f)),
         shape = RoundedCornerShape(16.dp)
@@ -311,13 +371,24 @@ private fun CycleEstimateCard(nextDate: LocalDate?, lateDays: Int) {
                 Text(
                     when {
                         nextDate == null -> "Registre uma menstruação para gerar uma estimativa."
-                        lateDays > 0 -> "Estimativa ultrapassada há $lateDays dia(s)."
-                        else -> "Próxima data estimada: ${nextDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                        lateDays > 0 -> "A previsão era ${nextDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} ($lateDays dia(s) atrás)."
+                        else -> "Possível próxima menstruação: ${nextDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
                     },
                     fontSize = 14.sp
                 )
+                if (nextDate != null) {
+                    Text(
+                        if (basedOnHistory) {
+                            "Média estimada de $estimatedCycleDays dias com base em $detectedCycles ciclos registrados."
+                        } else {
+                            "Ainda há pouco histórico; por enquanto usamos uma referência de 28 dias."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.DarkGray
+                    )
+                }
                 Text(
-                    "Cálculo aproximado de 28 dias; não é diagnóstico nem método contraceptivo.",
+                    "A previsão é aproximada e pode variar; não é diagnóstico nem método contraceptivo.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
