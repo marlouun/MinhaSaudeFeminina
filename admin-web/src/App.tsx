@@ -8,6 +8,7 @@ import { ArticlePreviewPage } from './pages/ArticlePreviewPage'
 import { ArticlesPage } from './pages/ArticlesPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { NewArticlePage } from './pages/NewArticlePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { articleRepository } from './services'
 
@@ -29,7 +30,7 @@ function ApplicationRoutes() {
         <Route element={<AdminLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="articles" element={<ArticlesPage />} />
-          <Route path="articles/new" element={<ArticleEditorPage />} />
+          <Route path="articles/new" element={<NewArticlePage />} />
           <Route path="articles/:articleId/edit" element={<ArticleEditorPage />} />
           <Route path="articles/:articleId/preview" element={<ArticlePreviewPage />} />
         </Route>
