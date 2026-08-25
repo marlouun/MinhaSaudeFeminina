@@ -1,8 +1,10 @@
 import type { Article, ArticleDocument } from '../types/article'
-import { supabaseRest } from '../supabase/client'
+import { supabaseRest, uploadPublicStorageObject } from '../supabase/client'
 import { cloneDocument, slugify } from '../utils/article'
 import { sanitizeArticleDocument } from '../utils/document'
 import type { ArticleRepository } from './ArticleRepository'
+
+const ARTICLE_IMAGE_BUCKET = 'article-images'
 
 interface ArticleRow {
   id: string
@@ -61,6 +63,29 @@ function toRow(article: Article): Omit<ArticleRow, 'created_at' | 'updated_at'> 
   }
 }
 
+function extensionForMimeType(mimeType: string): string {
+  switch (mimeType) {
+    case 'image/png': return 'png'
+    case 'image/gif': return 'gif'
+    case 'image/webp': return 'webp'
+    case 'image/jpeg':
+    case 'image/jpg':
+    default: return 'jpg'
+  }
+}
+
+async function persistCoverImage(article: Article): Promise<string | null> {
+  const value = article.coverImage
+  if (!value || !value.startsWith('data:image/')) return value
+
+  const response = await fetch(value)
+  if (!response.ok) throw new Error('Não foi possível preparar a imagem de capa para envio.')
+  const blob = await response.blob()
+  const extension = extensionForMimeType(blob.type)
+  const path = `covers/${article.id}.${extension}`
+  return await uploadPublicStorageObject(ARTICLE_IMAGE_BUCKET, path, blob)
+}
+
 export class SupabaseArticleRepository implements ArticleRepository {
   watchAll(onValue: (articles: Article[]) => void, onError?: (error: unknown) => void): () => void {
     let active = true
@@ -92,8 +117,10 @@ export class SupabaseArticleRepository implements ArticleRepository {
   }
 
   async save(article: Article): Promise<Article> {
+    const coverImage = await persistCoverImage(article)
     const clean: Article = {
       ...article,
+      coverImage,
       title: article.title.trim(),
       subtitle: article.subtitle.trim(),
       summary: article.summary.trim(),
