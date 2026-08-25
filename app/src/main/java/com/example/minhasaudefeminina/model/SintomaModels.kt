@@ -1,20 +1,20 @@
 package com.example.minhasaudefeminina.model
 
 enum class FaseVida(val label: String) {
-    ADOLESCENCIA("Adolescencia"),
+    ADOLESCENCIA("Adolescência"),
     IDADE_REPRODUTIVA("Idade reprodutiva"),
-    GESTACAO("Gestacao"),
-    CLIMATERIO("Climaterio"),
+    GESTACAO("Gestação"),
+    CLIMATERIO("Climatério"),
     MENOPAUSA("Menopausa"),
-    SENESCENCIA("Senescencia")
+    SENESCENCIA("Senescência")
 }
 
 enum class SintomaTipo(val label: String) {
-    MENSTRUACAO("Menstruacao"),
-    COLICA("Colica"),
+    MENSTRUACAO("Menstruação"),
+    COLICA("Cólica"),
     CORRIMENTO("Corrimento"),
     SANGRAMENTO("Sangramento"),
-    SINTOMA_URINARIO("Sintoma urinario"),
+    SINTOMA_URINARIO("Sintoma urinário"),
     HUMOR_TPM("Humor/TPM"),
     FOGACHOS("Fogachos"),
     SUOR_NOTURNO("Suor noturno"),
