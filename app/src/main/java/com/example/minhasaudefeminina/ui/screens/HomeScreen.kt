@@ -2,227 +2,251 @@ package com.example.minhasaudefeminina.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.minhasaudefeminina.model.RegistroSintoma
 import com.example.minhasaudefeminina.model.SintomaTipo
-import com.example.minhasaudefeminina.ui.theme.*
+import com.example.minhasaudefeminina.ui.theme.BlueSintoma
+import com.example.minhasaudefeminina.ui.theme.GreenSintoma
+import com.example.minhasaudefeminina.ui.theme.GreySintoma
+import com.example.minhasaudefeminina.ui.theme.IndigoSintoma
+import com.example.minhasaudefeminina.ui.theme.LightPinkBackground
+import com.example.minhasaudefeminina.ui.theme.OrangeSintoma
+import com.example.minhasaudefeminina.ui.theme.PinkHotSintoma
+import com.example.minhasaudefeminina.ui.theme.PurpleSelected
+import com.example.minhasaudefeminina.ui.theme.PurpleSintoma
+import com.example.minhasaudefeminina.ui.theme.RedSintoma
+import com.example.minhasaudefeminina.ui.theme.RosaClaro
+import com.example.minhasaudefeminina.ui.theme.RosaPrimario
+import com.example.minhasaudefeminina.ui.theme.RosaSecundario
 import com.example.minhasaudefeminina.viewmodel.CalendarDayType
 import com.example.minhasaudefeminina.viewmodel.SintomasViewModel
-import java.time.Instant
+import com.example.minhasaudefeminina.viewmodel.localDate
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.*
+import java.util.Locale
 
 @Composable
-fun HomeScreen(viewModel: SintomasViewModel) {
-    val mesExibido by viewModel.mesExibido.collectAsState()
-    val registros by viewModel.registrosSintomas.collectAsState()
-    var diaSelecionado by remember { mutableStateOf(LocalDate.now()) }
-    var dragAmountTotal by remember { mutableFloatStateOf(0f) }
-    val scrollState = rememberScrollState()
+fun HomeScreen(
+    viewModel: SintomasViewModel,
+    onAddRecord: (LocalDate) -> Unit,
+    onEditRecord: (RegistroSintoma) -> Unit
+) {
+    val month by viewModel.mesExibido.collectAsStateWithLifecycle()
+    val records by viewModel.registrosSintomas.collectAsStateWithLifecycle()
+    val cycleSummary by viewModel.cycleSummary.collectAsStateWithLifecycle()
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LightPinkBackground)
-    ) {
-        // --- HEADER (Fixo no topo) ---
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            shadowElevation = 2.dp
-        ) {
-            Box(modifier = Modifier.padding(15.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "♀ Minha Saúde Feminina",
-                    fontSize = 20.sp,
-                    color = RosaPrimario,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+    LaunchedEffect(month) {
+        if (YearMonth.from(selectedDate) != month) {
+            selectedDate = if (month == YearMonth.now()) LocalDate.now() else month.atDay(1)
+        }
+    }
+
+    val selectedRecords = remember(records, selectedDate) {
+        records.filter { it.localDate() == selectedDate }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(LightPinkBackground)) {
+        Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 2.dp) {
+            Text(
+                text = "♀ Minha Saúde Feminina",
+                modifier = Modifier.padding(16.dp),
+                textAlign = TextAlign.Center,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = RosaPrimario
+            )
         }
 
-        // --- CONTEÚDO COM SCROLL ---
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState) // Habilita o scroll vertical
-                .padding(16.dp)
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragEnd = {
-                            if (dragAmountTotal > 50) viewModel.mesAnterior()
-                            else if (dragAmountTotal < -50) viewModel.mesProximo()
-                            dragAmountTotal = 0f
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            dragAmountTotal += dragAmount.x
-                        }
-                    )
-                }
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp, 16.dp, 16.dp, 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // --- CALENDAR HEADER ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { viewModel.mesAnterior() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Anterior", tint = RosaPrimario)
-                }
-                Text(
-                    text = "${mesExibido.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }} ${mesExibido.year}",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = RosaPrimario
+            item {
+                CalendarCard(
+                    month = month,
+                    selectedDate = selectedDate,
+                    records = records,
+                    onPrevious = viewModel::mesAnterior,
+                    onNext = viewModel::mesProximo,
+                    onSelect = { selectedDate = it },
+                    typesForDay = viewModel::getTiposParaDia
                 )
-                IconButton(onClick = { viewModel.mesProximo() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, "Próximo", tint = RosaPrimario)
-                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // --- CALENDAR GRID ---
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Column(modifier = Modifier.padding(10.dp)) {
-                    // Days of week
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        listOf("D", "S", "T", "Q", "Q", "S", "S").forEach { day ->
-                            Text(day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 12.sp, color = Color.Gray)
-                        }
-                    }
-                    
-                    val firstDay = mesExibido.atDay(1)
-                    val daysInMonth = mesExibido.lengthOfMonth()
-                    val emptyDays = firstDay.dayOfWeek.value % 7
-
-                    // Para evitar conflito de scroll, usamos uma Column manual em vez de LazyVerticalGrid dentro de scroll
-                    val totalSlots = emptyDays + daysInMonth
-                    val rows = (totalSlots + 6) / 7
-                    
-                    Column(modifier = Modifier.padding(top = 8.dp)) {
-                        for (row in 0 until rows) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                for (col in 0 until 7) {
-                                    val index = row * 7 + col
-                                    val dayNumber = index - emptyDays + 1
-                                    
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        if (dayNumber in 1..daysInMonth) {
-                                            val date = mesExibido.atDay(dayNumber)
-                                            val types = viewModel.getTiposParaDia(date)
-                                            val isSelected = diaSelecionado == date
-                                            
-                                            val symptomsForThisDay = registros.filter {
-                                                try {
-                                                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == date
-                                                } catch (e: Exception) { false }
-                                            }
-
-                                            DayItem(
-                                                day = dayNumber,
-                                                types = types,
-                                                isSelected = isSelected,
-                                                symptoms = symptomsForThisDay,
-                                                onClick = { diaSelecionado = date }
-                                            )
-                                        } else {
-                                            Spacer(Modifier.aspectRatio(1f))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- INFO SECTION ---
-            Text("Sintomas registrados em ${diaSelecionado.dayOfMonth}/${diaSelecionado.monthValue}", fontWeight = FontWeight.Bold, color = RosaPrimario)
-            
-            val sintomasHoje = registros.filter { 
-                try {
-                    Instant.ofEpochMilli(it.data_timestamp).atZone(ZoneId.systemDefault()).toLocalDate() == diaSelecionado 
-                } catch (e: Exception) { false }
-            }
-
-            if (sintomasHoje.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.5f))
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Nenhum registro para este dia.", modifier = Modifier.padding(16.dp), color = Color.Gray, fontSize = 14.sp)
+                    Column {
+                        Text("Registros do dia", fontWeight = FontWeight.Bold, color = RosaPrimario)
+                        Text(
+                            selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                            fontSize = 13.sp,
+                            color = Color.Gray
+                        )
+                    }
+                    Button(
+                        onClick = { onAddRecord(selectedDate) },
+                        colors = ButtonDefaults.buttonColors(containerColor = RosaSecundario),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Text("Adicionar", modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
+            }
+
+            if (selectedRecords.isEmpty()) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.7f))) {
+                        Text(
+                            "Nenhum sintoma registrado nesta data.",
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            textAlign = TextAlign.Center,
+                            color = Color.Gray
+                        )
+                    }
                 }
             } else {
-                sintomasHoje.forEach { registro ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(10.dp).background(getSintomaColor(registro.tipo), CircleShape))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            val enumTipo = try { SintomaTipo.valueOf(registro.tipo) } catch(e: Exception) { null }
-                            Text(enumTipo?.label ?: registro.tipo, fontWeight = FontWeight.Medium)
-                            Spacer(modifier = Modifier.weight(1f))
-                            Text("Nível ${registro.intensidade}/5", fontSize = 12.sp, color = Color.Gray)
-                        }
-                    }
+                items(selectedRecords.size, key = { selectedRecords[it].id }) { index ->
+                    SymptomRecordCard(selectedRecords[index], onEditRecord)
                 }
             }
 
-            // --- CALC CARD ---
-            Spacer(modifier = Modifier.height(10.dp))
-            InfoCard(
-                title = "Próxima Menstruação",
-                value = "Em breve",
-                icon = Icons.Default.CalendarToday,
-                color = RosaClaro
-            )
-            
-            // Espaço extra no final para o scroll não ficar colado na barra de navegação
-            Spacer(modifier = Modifier.height(30.dp))
+            item {
+                CycleEstimateCard(
+                    nextDate = cycleSummary.nextExpectedDate,
+                    lateDays = cycleSummary.lateDays
+                )
+            }
         }
     }
 }
 
 @Composable
-fun DayItem(
-    day: Int, 
-    types: List<CalendarDayType>, 
-    isSelected: Boolean, 
-    symptoms: List<com.example.minhasaudefeminina.model.RegistroSintoma>,
+private fun CalendarCard(
+    month: YearMonth,
+    selectedDate: LocalDate,
+    records: List<RegistroSintoma>,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSelect: (LocalDate) -> Unit,
+    typesForDay: (LocalDate) -> List<CalendarDayType>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(3.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onPrevious) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Mês anterior", tint = RosaPrimario)
+                }
+                Text(
+                    "${month.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }} ${month.year}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = RosaPrimario
+                )
+                IconButton(onClick = onNext) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, "Próximo mês", tint = RosaPrimario)
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                listOf("D", "S", "T", "Q", "Q", "S", "S").forEach {
+                    Text(it, Modifier.weight(1f), textAlign = TextAlign.Center, color = Color.Gray, fontSize = 12.sp)
+                }
+            }
+
+            val firstDay = month.atDay(1)
+            val emptyDays = firstDay.dayOfWeek.value % 7
+            val rows = (emptyDays + month.lengthOfMonth() + 6) / 7
+            repeat(rows) { row ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    repeat(7) { column ->
+                        val dayNumber = row * 7 + column - emptyDays + 1
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (dayNumber in 1..month.lengthOfMonth()) {
+                                val date = month.atDay(dayNumber)
+                                val dayRecords = records.filter { it.localDate() == date }
+                                CalendarDay(
+                                    day = dayNumber,
+                                    types = typesForDay(date),
+                                    selected = date == selectedDate,
+                                    records = dayRecords,
+                                    onClick = { onSelect(date) }
+                                )
+                            } else {
+                                Spacer(Modifier.aspectRatio(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarDay(
+    day: Int,
+    types: List<CalendarDayType>,
+    selected: Boolean,
+    records: List<RegistroSintoma>,
     onClick: () -> Unit
 ) {
     Box(
@@ -230,26 +254,25 @@ fun DayItem(
             .aspectRatio(1f)
             .padding(2.dp)
             .background(
-                color = when {
-                    isSelected -> PurpleSelected.copy(alpha = 0.2f)
-                    types.contains(CalendarDayType.HOJE) -> RosaClaro
+                when {
+                    selected -> PurpleSelected.copy(alpha = 0.18f)
+                    CalendarDayType.HOJE in types -> RosaClaro
                     else -> Color.Transparent
                 },
-                shape = RoundedCornerShape(10.dp)
+                RoundedCornerShape(10.dp)
             )
-            .clickable { onClick() },
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = day.toString(),
-                fontSize = 14.sp,
-                color = if (isSelected) PurpleSelected else Color.Black,
-                fontWeight = if (isSelected || types.contains(CalendarDayType.HOJE)) FontWeight.Bold else FontWeight.Normal
+                day.toString(),
+                fontWeight = if (selected || CalendarDayType.HOJE in types) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) PurpleSelected else Color.Black
             )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                symptoms.take(3).forEach { symptom ->
-                    Box(modifier = Modifier.size(4.dp).background(getSintomaColor(symptom.tipo), CircleShape))
+                records.take(3).forEach {
+                    Box(Modifier.size(4.dp).background(getSintomaColor(it.tipo), CircleShape))
                 }
             }
         }
@@ -257,33 +280,60 @@ fun DayItem(
 }
 
 @Composable
-fun InfoCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
+private fun SymptomRecordCard(record: RegistroSintoma, onEdit: (RegistroSintoma) -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().height(80.dp),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = color)
+        modifier = Modifier.fillMaxWidth().clickable { onEdit(record) },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(14.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = RosaPrimario)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(title, fontSize = 12.sp, color = Color.Gray)
-                Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(12.dp).background(getSintomaColor(record.tipo), CircleShape))
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(record.tipo.label, fontWeight = FontWeight.SemiBold)
+                Text("Intensidade ${record.intensidade}/5", fontSize = 12.sp, color = Color.Gray)
+                record.notas?.let { Text(it, fontSize = 13.sp, color = Color.DarkGray, maxLines = 2) }
+            }
+            Icon(Icons.Default.Edit, contentDescription = "Editar registro", tint = RosaSecundario)
+        }
+    }
+}
+
+@Composable
+private fun CycleEstimateCard(nextDate: LocalDate?, lateDays: Int) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = RosaClaro.copy(alpha = 0.55f)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.CalendarMonth, null, tint = RosaPrimario)
+            Column(modifier = Modifier.padding(start = 12.dp)) {
+                Text("Estimativa do ciclo", fontWeight = FontWeight.Bold, color = RosaPrimario)
+                Text(
+                    when {
+                        nextDate == null -> "Registre uma menstruação para gerar uma estimativa."
+                        lateDays > 0 -> "Estimativa ultrapassada há $lateDays dia(s)."
+                        else -> "Próxima data estimada: ${nextDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                    },
+                    fontSize = 14.sp
+                )
+                Text(
+                    "Cálculo aproximado de 28 dias; não é diagnóstico nem método contraceptivo.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
             }
         }
     }
 }
 
-fun getSintomaColor(tipo: String): Color {
-    return when(tipo) {
-        SintomaTipo.MENSTRUACAO.name -> RosaPrimario
-        SintomaTipo.COLICA.name -> OrangeSintoma
-        SintomaTipo.CORRIMENTO.name -> BlueSintoma
-        SintomaTipo.SANGRAMENTO.name -> RedSintoma
-        SintomaTipo.SINTOMA_URINARIO.name -> GreenSintoma
-        SintomaTipo.HUMOR_TPM.name -> PurpleSintoma
-        SintomaTipo.FOGACHOS.name -> PinkHotSintoma
-        SintomaTipo.SUOR_NOTURNO.name -> IndigoSintoma
-        else -> GreySintoma
-    }
+fun getSintomaColor(tipo: SintomaTipo): Color = when (tipo) {
+    SintomaTipo.MENSTRUACAO -> RosaPrimario
+    SintomaTipo.COLICA -> OrangeSintoma
+    SintomaTipo.CORRIMENTO -> BlueSintoma
+    SintomaTipo.SANGRAMENTO -> RedSintoma
+    SintomaTipo.SINTOMA_URINARIO -> GreenSintoma
+    SintomaTipo.HUMOR_TPM -> PurpleSintoma
+    SintomaTipo.FOGACHOS -> PinkHotSintoma
+    SintomaTipo.SUOR_NOTURNO -> IndigoSintoma
+    SintomaTipo.OUTRO -> GreySintoma
 }
