@@ -1,140 +1,108 @@
 package com.example.minhasaudefeminina.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.google.firebase.auth.EmailAuthProvider
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.minhasaudefeminina.data.repository.AuthRepository
+import com.example.minhasaudefeminina.model.Usuario
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-sealed class AuthState {
-    object Idle : AuthState()
-    object Loading : AuthState()
-    data class Authenticated(val user: FirebaseUser) : AuthState()
-    data class Unauthenticated(val message: String? = null) : AuthState()
-    data class Error(val message: String) : AuthState()
-    object PasswordChanged : AuthState()
+enum class AuthEvent {
+    ACCOUNT_UPDATED,
+    PASSWORD_CHANGED,
+    ACCOUNT_DELETED
 }
 
-class AuthViewModel : ViewModel() {
-    private val auth: FirebaseAuth? = try { 
-        FirebaseAuth.getInstance() 
-    } catch (e: Exception) { 
-        Log.e("AuthViewModel", "Erro ao inicializar FirebaseAuth: ${e.message}")
-        null 
-    }
+data class AuthUiState(
+    val isInitializing: Boolean = true,
+    val isLoading: Boolean = false,
+    val user: Usuario? = null,
+    val message: String? = null,
+    val event: AuthEvent? = null
+)
 
-    private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
-    val authState: StateFlow<AuthState> = _authState
-
-    private val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-        val user = firebaseAuth.currentUser
-        if (user != null) {
-            _authState.value = AuthState.Authenticated(user)
-        } else {
-            _authState.value = AuthState.Unauthenticated()
-        }
-    }
+class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
+    private val _uiState = MutableStateFlow(AuthUiState())
+    val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
-        try {
-            auth?.addAuthStateListener(authListener)
-            if (auth == null) {
-                _authState.value = AuthState.Unauthenticated("Serviço de autenticação indisponível.")
+        repository.sessionUser
+            .onEach { user ->
+                _uiState.update { it.copy(isInitializing = false, user = user, isLoading = false) }
             }
-        } catch (e: Exception) {
-            Log.e("AuthViewModel", "Erro no init: ${e.message}")
+            .catch { error ->
+                _uiState.update {
+                    it.copy(
+                        isInitializing = false,
+                        isLoading = false,
+                        message = error.message ?: "Não foi possível ler a sessão local."
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun login(email: String, password: String) = runAction {
+        repository.login(email, password.toCharArray())
+    }
+
+    fun createAccount(name: String, email: String, password: String) = runAction {
+        repository.createAccount(name, email, password.toCharArray())
+    }
+
+    fun logout() = runAction { repository.logout() }
+
+    fun updateAccount(name: String, email: String) {
+        val userId = _uiState.value.user?.id ?: return
+        runAction(AuthEvent.ACCOUNT_UPDATED) { repository.updateAccount(userId, name, email) }
+    }
+
+    fun changePassword(currentPassword: String, newPassword: String) {
+        val userId = _uiState.value.user?.id ?: return
+        runAction(AuthEvent.PASSWORD_CHANGED) {
+            repository.changePassword(userId, currentPassword.toCharArray(), newPassword.toCharArray())
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        try {
-            auth?.removeAuthStateListener(authListener)
-        } catch (e: Exception) {}
-    }
-
-    fun checkAuthStatus() {
-        val currentUser = auth?.currentUser
-        if (currentUser != null) {
-            _authState.value = AuthState.Authenticated(currentUser)
-        } else {
-            _authState.value = AuthState.Unauthenticated()
+    fun deleteAccount(password: String) {
+        val userId = _uiState.value.user?.id ?: return
+        runAction(AuthEvent.ACCOUNT_DELETED) {
+            repository.deleteAccount(userId, password.toCharArray())
         }
     }
 
-    fun login(email: String, pass: String) {
-        if (email.isBlank() || pass.isBlank()) {
-            _authState.value = AuthState.Error("Preencha todos os campos.")
-            return
+    fun consumeMessage() = _uiState.update { it.copy(message = null) }
+    fun consumeEvent() = _uiState.update { it.copy(event = null) }
+
+    private fun runAction(event: AuthEvent? = null, action: suspend () -> Unit) {
+        if (_uiState.value.isLoading) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = null, event = null) }
+            runCatching { action() }
+                .onSuccess { _uiState.update { it.copy(isLoading = false, event = event) } }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            message = error.message ?: "Não foi possível concluir a operação."
+                        )
+                    }
+                }
         }
-
-        _authState.value = AuthState.Loading
-        auth?.signInWithEmailAndPassword(email, pass)
-            ?.addOnSuccessListener {
-                checkAuthStatus()
-            }
-            ?.addOnFailureListener {
-                _authState.value = AuthState.Error(it.localizedMessage ?: "Erro ao entrar.")
-            } ?: run {
-                _authState.value = AuthState.Error("Serviço indisponível.")
-            }
     }
 
-    fun signUp(email: String, pass: String) {
-        if (email.isBlank() || pass.isBlank()) {
-            _authState.value = AuthState.Error("Preencha todos os campos.")
-            return
-        }
-
-        _authState.value = AuthState.Loading
-        auth?.createUserWithEmailAndPassword(email, pass)
-            ?.addOnSuccessListener {
-                checkAuthStatus()
-            }
-            ?.addOnFailureListener {
-                _authState.value = AuthState.Error(it.localizedMessage ?: "Erro ao cadastrar.")
-            } ?: run {
-                _authState.value = AuthState.Error("Serviço indisponível.")
-            }
-    }
-
-    fun signOut() {
-        auth?.signOut()
-        _authState.value = AuthState.Unauthenticated()
-    }
-
-    fun loginWithGoogle(idToken: String) {
-        _authState.value = AuthState.Loading
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth?.signInWithCredential(credential)
-            ?.addOnSuccessListener { checkAuthStatus() }
-            ?.addOnFailureListener {
-                _authState.value = AuthState.Error(it.localizedMessage ?: "Erro ao entrar com Google.")
-            }
-    }
-
-    fun resetState() {
-        _authState.value = AuthState.Idle
-    }
-
-    fun changePassword(currentPass: String, newPass: String) {
-        val user = auth?.currentUser ?: return
-        val email = user.email ?: return
-
-        _authState.value = AuthState.Loading
-        
-        val credential = EmailAuthProvider.getCredential(email, currentPass)
-        user.reauthenticate(credential).addOnSuccessListener {
-            user.updatePassword(newPass).addOnSuccessListener {
-                _authState.value = AuthState.PasswordChanged
-            }.addOnFailureListener {
-                _authState.value = AuthState.Error("Erro ao atualizar: ${it.localizedMessage}")
-            }
-        }.addOnFailureListener {
-            _authState.value = AuthState.Error("Senha atual incorreta.")
+    companion object {
+        fun factory(repository: AuthRepository): ViewModelProvider.Factory = viewModelFactory {
+            initializer { AuthViewModel(repository) }
         }
     }
 }
