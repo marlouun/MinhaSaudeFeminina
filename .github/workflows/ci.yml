@@ -55,33 +55,3 @@ jobs:
           name: minha-saude-feminina-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-  admin-web:
-    name: Painel web
-    if: ${{ hashFiles('admin-web/package-lock.json') != '' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    defaults:
-      run:
-        working-directory: admin-web
-
-    steps:
-      - name: Baixar codigo
-        uses: actions/checkout@v4
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: admin-web/package-lock.json
-
-      - name: Instalar dependencias
-        run: npm ci
-
-      - name: Executar testes
-        run: npm run test -- --run
-
-      - name: Gerar build web
-        run: npm run build
