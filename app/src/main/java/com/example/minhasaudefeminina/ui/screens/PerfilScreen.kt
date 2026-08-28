@@ -265,7 +265,6 @@ fun PerfilScreen(
                     Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = RosaPrimario)
                     Text("Sair da conta", modifier = Modifier.padding(start = 8.dp), color = RosaPrimario, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(100.dp))
             }
         }
         SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter))

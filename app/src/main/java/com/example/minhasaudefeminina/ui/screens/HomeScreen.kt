@@ -109,7 +109,7 @@ fun HomeScreen(
 
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp, 16.dp, 16.dp, 110.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp, 16.dp, 16.dp, 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
