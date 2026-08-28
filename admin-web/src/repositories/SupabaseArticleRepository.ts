@@ -3,6 +3,7 @@ import { supabaseRest, uploadPublicStorageObject } from '../supabase/client'
 import { cloneDocument, slugify } from '../utils/article'
 import { sanitizeArticleDocument } from '../utils/document'
 import type { ArticleRepository } from './ArticleRepository'
+import { LocalArticleRepository } from './LocalArticleRepository'
 
 const ARTICLE_IMAGE_BUCKET = 'article-images'
 
@@ -168,6 +169,17 @@ export class SupabaseArticleRepository implements ArticleRepository {
   }
 
   async seedIfEmpty(): Promise<void> {
-    // Os dados compartilhados pertencem ao Supabase; não criamos seeds locais no painel remoto.
+    const remoteArticles = await this.getAll()
+    if (remoteArticles.length > 0) return
+
+    // Migração automática da versão antiga do painel: se este navegador ainda tiver
+    // artigos no IndexedDB local, enviamos uma única vez para o Supabase.
+    const localRepository = new LocalArticleRepository()
+    const localArticles = await localRepository.getAll()
+    if (localArticles.length === 0) return
+
+    for (const article of localArticles) {
+      await this.save(article)
+    }
   }
 }

@@ -5,13 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -19,10 +16,9 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -130,23 +126,13 @@ fun AppNavigation(
     Scaffold(
         bottomBar = {
             if (showMainChrome) {
-                MainBottomBar(currentRoute = currentRoute, onSelect = ::navigateRoot)
+                MainBottomBar(
+                    currentRoute = currentRoute,
+                    onSelect = ::navigateRoot,
+                    onAddSymptom = { navController.navigate(Routes.symptom(LocalDate.now())) }
+                )
             }
-        },
-        floatingActionButton = {
-            if (showMainChrome) {
-                FloatingActionButton(
-                    onClick = { navController.navigate(Routes.symptom(LocalDate.now())) },
-                    shape = CircleShape,
-                    containerColor = RosaSecundario,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(2.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Registrar sintoma")
-                }
-            }
-        },
-        floatingActionButtonPosition = FabPosition.Center
+        }
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -214,43 +200,84 @@ fun AppNavigation(
 }
 
 @Composable
-private fun MainBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
+private fun MainBottomBar(
+    currentRoute: String?,
+    onSelect: (String) -> Unit,
+    onAddSymptom: () -> Unit
+) {
     Surface(
         modifier = Modifier.navigationBarsPadding(),
         color = Color.White,
-        shadowElevation = 6.dp
+        shadowElevation = 7.dp
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             rootDestinations.take(2).forEach { destination ->
-                BottomItem(destination, destination.route == currentRoute) { onSelect(destination.route) }
+                BottomItem(destination, destination.route == currentRoute, Modifier.weight(1f)) {
+                    onSelect(destination.route)
+                }
             }
-            Spacer(Modifier.width(60.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = RosaSecundario,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    IconButton(onClick = onAddSymptom) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Registrar sintoma",
+                            tint = Color.White,
+                            modifier = Modifier.size(25.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "Registrar",
+                    color = RosaPrimario,
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
             rootDestinations.drop(2).forEach { destination ->
-                BottomItem(destination, destination.route == currentRoute) { onSelect(destination.route) }
+                BottomItem(destination, destination.route == currentRoute, Modifier.weight(1f)) {
+                    onSelect(destination.route)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun BottomItem(destination: RootDestination, selected: Boolean, onClick: () -> Unit) {
+private fun BottomItem(
+    destination: RootDestination,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 6.dp)
+        modifier = modifier.clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         Icon(
             imageVector = destination.icon,
             contentDescription = destination.label,
-            tint = if (selected) RosaPrimario else Color.Gray,
+            tint = if (selected) RosaPrimario else inactiveColor,
             modifier = Modifier.size(24.dp)
         )
         Text(
             text = destination.label,
-            color = if (selected) RosaPrimario else Color.Gray,
+            color = if (selected) RosaPrimario else inactiveColor,
             fontSize = 11.sp
         )
     }

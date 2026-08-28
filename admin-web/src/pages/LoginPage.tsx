@@ -10,8 +10,6 @@ function traduzirErroDeAcesso(msg: string): string {
   if (m.includes('invalid email')) return 'E-mail inválido.'
   if (m.includes('invalid login credentials') || m.includes('invalid password') || m.includes('wrong password')) return 'E-mail ou senha incorretos.'
   if (m.includes('email not confirmed')) return 'E-mail ainda não confirmado.'
-  if (m.includes('user already registered') || m.includes('already been registered')) return 'Este e-mail já está cadastrado.'
-  if (m.includes('password should be at least')) return 'A senha deve ter pelo menos 8 caracteres.'
   if (m.includes('too many requests') || m.includes('rate limit')) return 'Muitas tentativas. Aguarde alguns segundos e tente novamente.'
   if (m.includes('network') || m.includes('fetch')) return 'Erro de conexão. Verifique sua internet.'
   if (msg) return msg
@@ -19,31 +17,23 @@ function traduzirErroDeAcesso(msg: string): string {
 }
 
 export function LoginPage() {
-  const { loading, hasAdmin, session, setup, login } = useAuth()
+  const { loading, session, login } = useAuth()
   const navigate = useNavigate()
-  const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmation, setConfirmation] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (loading) return <LoadingScreen label="Abrindo o painel local..." />
+  if (loading) return <LoadingScreen label="Conectando ao Supabase..." />
   if (session) return <Navigate to="/" replace />
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
-    if (!hasAdmin && password !== confirmation) {
-      setError('As senhas não conferem.')
-      return
-    }
-
     setSubmitting(true)
     try {
-      if (hasAdmin) await login(email, password)
-      else await setup(displayName, email, password)
+      await login(email, password)
       navigate('/', { replace: true })
     } catch (reason) {
       const raw = reason instanceof Error ? reason.message : ''
@@ -69,9 +59,9 @@ export function LoginPage() {
         <div className="login-hero-content">
           <span className="eyebrow">Conteúdo e cuidado</span>
           <h1>Para a mulher<br />em todas as fases da vida.</h1>
-          <p>Escreva, revise e publique conteúdos de saúde em um painel com a mesma identidade visual do aplicativo Minha Saúde Feminina.</p>
-          <div className="login-feature"><ShieldCheck size={22} /><span>Área administrativa organizada para gerenciar os artigos.</span></div>
-          <div className="login-feature"><LockKeyhole size={22} /><span>Acesso protegido de acordo com o modo configurado no projeto.</span></div>
+          <p>Escreva, revise e publique conteúdos de saúde sincronizados com o aplicativo Minha Saúde Feminina.</p>
+          <div className="login-feature"><ShieldCheck size={22} /><span>Artigos compartilhados pelo Supabase com o aplicativo.</span></div>
+          <div className="login-feature"><LockKeyhole size={22} /><span>Acesso administrativo autenticado pelo Supabase.</span></div>
         </div>
       </section>
 
@@ -94,28 +84,12 @@ export function LoginPage() {
           <div className="login-card-heading">
             <span className="login-card-icon"><LockKeyhole size={22} /></span>
             <div>
-              <h2>{hasAdmin ? 'Entrar no painel' : 'Configurar administrador'}</h2>
-              <p>{hasAdmin ? 'Use sua conta administrativa.' : 'Esta etapa acontece apenas no primeiro acesso.'}</p>
+              <h2>Entrar no painel</h2>
+              <p>Use uma conta cadastrada em Supabase Authentication.</p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
-            {!hasAdmin && (
-              <div className="form-field">
-                <label htmlFor="display-name">Nome do administrador</label>
-                <input
-                  id="display-name"
-                  className="form-control"
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value.slice(0, 80))}
-                  autoComplete="name"
-                  required
-                  minLength={2}
-                  placeholder="Ex.: Marlon"
-                />
-              </div>
-            )}
-
             <div className="form-field">
               <label htmlFor="admin-email">E-mail</label>
               <input
@@ -126,7 +100,7 @@ export function LoginPage() {
                 onChange={(event) => setEmail(event.target.value.slice(0, 254))}
                 autoComplete="username"
                 required
-                placeholder="teste@gmail.com"
+                placeholder="admin@email.com"
               />
             </div>
 
@@ -139,10 +113,10 @@ export function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(event) => setPassword(event.target.value.slice(0, 128))}
-                  autoComplete={hasAdmin ? 'current-password' : 'new-password'}
+                  autoComplete="current-password"
                   required
                   minLength={8}
-                  placeholder="Mínimo de 8 caracteres"
+                  placeholder="Sua senha administrativa"
                 />
                 <button type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setShowPassword((current) => !current)}>
                   {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
@@ -150,34 +124,17 @@ export function LoginPage() {
               </div>
             </div>
 
-            {!hasAdmin && (
-              <div className="form-field">
-                <label htmlFor="admin-confirmation">Confirmar senha</label>
-                <input
-                  id="admin-confirmation"
-                  className="form-control"
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmation}
-                  onChange={(event) => setConfirmation(event.target.value.slice(0, 128))}
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                />
-                <small>Use pelo menos uma letra e um número.</small>
-              </div>
-            )}
-
             {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
             <button type="submit" className="btn btn-primary login-submit" disabled={submitting}>
               {submitting && <span className="spinner-border spinner-border-sm" aria-hidden="true" />}
-              {submitting ? 'Processando...' : hasAdmin ? 'Entrar' : 'Criar administrador'}
+              {submitting ? 'Conectando...' : 'Entrar'}
             </button>
           </form>
 
           <div className="local-security-note">
             <ShieldCheck size={18} />
-            <span>Use apenas uma conta administrativa autorizada para criar e editar os conteúdos.</span>
+            <span>Somente contas administrativas autorizadas devem ter permissão para criar, editar e excluir artigos.</span>
           </div>
         </div>
       </section>
