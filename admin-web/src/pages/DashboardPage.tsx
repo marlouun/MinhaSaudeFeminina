@@ -7,7 +7,7 @@ import { formatDate } from '../utils/article'
 export function DashboardPage() {
   const { articles, loading, error } = useArticles()
 
-  if (loading) return <LoadingScreen label="Carregando indicadores..." />
+  if (loading) return <LoadingScreen label="Carregando artigos do Supabase..." />
 
   const published = articles.filter((article) => article.status === 'published').length
   const drafts = articles.length - published
@@ -19,7 +19,7 @@ export function DashboardPage() {
         <div>
           <span className="eyebrow">Visão geral</span>
           <h1>Dashboard</h1>
-          <p>Acompanhe os artigos armazenados localmente neste navegador.</p>
+          <p>Acompanhe os artigos compartilhados entre o painel e o aplicativo pelo Supabase.</p>
         </div>
         <Link className="btn btn-primary" to="/articles/new"><FilePlus2 size={18} /> Novo artigo</Link>
       </section>
@@ -47,11 +47,11 @@ export function DashboardPage() {
       <section className="dashboard-grid">
         <article className="panel-card recent-panel">
           <div className="panel-heading">
-            <div><h2>Atualizados recentemente</h2><p>Últimas alterações feitas no painel.</p></div>
+            <div><h2>Atualizados recentemente</h2><p>Últimas alterações sincronizadas.</p></div>
             <Link to="/articles">Ver todos</Link>
           </div>
           {recent.length === 0 ? (
-            <div className="empty-state compact"><Files size={34} /><p>Nenhum artigo criado ainda.</p></div>
+            <div className="empty-state compact"><Files size={34} /><p>Nenhum artigo encontrado no Supabase.</p></div>
           ) : (
             <div className="recent-list">
               {recent.map((article) => (
