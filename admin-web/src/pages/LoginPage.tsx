@@ -4,6 +4,20 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { useAuth } from '../contexts/AuthContext'
 
+function traduzirErroDeAcesso(msg: string): string {
+  const m = msg.toLowerCase()
+  if (m.includes('missing email or phone') || m.includes('missing email')) return 'Informe o e-mail.'
+  if (m.includes('invalid email')) return 'E-mail inválido.'
+  if (m.includes('invalid login credentials') || m.includes('invalid password') || m.includes('wrong password')) return 'E-mail ou senha incorretos.'
+  if (m.includes('email not confirmed')) return 'E-mail ainda não confirmado.'
+  if (m.includes('user already registered') || m.includes('already been registered')) return 'Este e-mail já está cadastrado.'
+  if (m.includes('password should be at least')) return 'A senha deve ter pelo menos 8 caracteres.'
+  if (m.includes('too many requests') || m.includes('rate limit')) return 'Muitas tentativas. Aguarde alguns segundos e tente novamente.'
+  if (m.includes('network') || m.includes('fetch')) return 'Erro de conexão. Verifique sua internet.'
+  if (msg) return msg
+  return 'Não foi possível concluir o acesso.'
+}
+
 export function LoginPage() {
   const { loading, hasAdmin, session, setup, login } = useAuth()
   const navigate = useNavigate()
@@ -32,7 +46,8 @@ export function LoginPage() {
       else await setup(displayName, email, password)
       navigate('/', { replace: true })
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível concluir o acesso.')
+      const raw = reason instanceof Error ? reason.message : ''
+      setError(traduzirErroDeAcesso(raw))
     } finally {
       setSubmitting(false)
     }
@@ -45,19 +60,37 @@ export function LoginPage() {
           <div className="login-brand-icon"><HeartPulse size={31} /></div>
           <div>
             <strong>Minha Saúde Feminina</strong>
-            <span>Painel de conteúdo</span>
+            <span>Trabalho acadêmico Unifebe</span>
           </div>
         </div>
+        <div className="login-unifebe-logo">
+          <img src="/unifebe-logo-transparent.png" alt="Unifebe — É Nossa. É Daqui." />
+        </div>
         <div className="login-hero-content">
-          <span className="eyebrow">Administração local</span>
-          <h1>Informação de saúde com organização e cuidado.</h1>
-          <p>Crie, revise e publique artigos em um editor completo, mantendo os dados somente neste navegador enquanto o backend não é definido.</p>
-          <div className="login-feature"><ShieldCheck size={22} /><span>Nenhuma credencial é enviada para um serviço externo.</span></div>
-          <div className="login-feature"><LockKeyhole size={22} /><span>A senha é derivada com PBKDF2 e salt aleatório antes de ser salva.</span></div>
+          <span className="eyebrow"></span>
+          <h1>Para a Mulher <br />em todas as fases da vida.</h1>
+          <p>Escreva e publique seus artigos com facilidade. Por enquanto, tudo o que você fizer fica salvo com segurança apenas no seu navegador.</p>
+          <div className="login-feature"><ShieldCheck size={22} /><span>100% privado: nenhuma informação sai do seu navegador.</span></div>
+          <div className="login-feature"><LockKeyhole size={22} /><span>Sua senha é salva com proteção avançada de segurança.</span></div>
         </div>
       </section>
 
       <section className="login-panel">
+        {/* Elementos decorativos animados */}
+        <div className="login-panel-deco" aria-hidden="true">
+          <span className="deco-circle deco-circle-1" />
+          <span className="deco-circle deco-circle-2" />
+          <span className="deco-circle deco-circle-3" />
+          <span className="deco-ring deco-ring-1" />
+          <span className="deco-ring deco-ring-2" />
+          <span className="deco-dot deco-dot-1" />
+          <span className="deco-dot deco-dot-2" />
+          <span className="deco-dot deco-dot-3" />
+          <span className="deco-cross deco-cross-1" />
+          <span className="deco-cross deco-cross-2" />
+          <span className="deco-pill deco-pill-1" />
+          <span className="deco-pill deco-pill-2" />
+        </div>
         <div className="login-card">
           <div className="login-card-heading">
             <span className="login-card-icon"><LockKeyhole size={22} /></span>
@@ -94,7 +127,7 @@ export function LoginPage() {
                 onChange={(event) => setEmail(event.target.value.slice(0, 254))}
                 autoComplete="username"
                 required
-                placeholder="admin@exemplo.com"
+                placeholder="teste@gmail.com"
               />
             </div>
 

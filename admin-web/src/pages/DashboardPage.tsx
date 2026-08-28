@@ -1,4 +1,4 @@
-import { FileEdit, FilePlus2, Files, Send, Sparkles } from 'lucide-react'
+import { FilePlus2, Files, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { useArticles } from '../hooks/useArticles'
@@ -28,16 +28,19 @@ export function DashboardPage() {
 
       <section className="stats-grid" aria-label="Resumo dos artigos">
         <article className="stat-card total">
-          <span className="stat-icon"><Files size={24} /></span>
-          <div><span>Total de artigos</span><strong>{articles.length}</strong></div>
+          <span className="stat-label">Total de artigos</span>
+          <strong className="stat-number">{articles.length}</strong>
+          <span className="stat-bar stat-bar-total" />
         </article>
         <article className="stat-card published">
-          <span className="stat-icon"><Send size={24} /></span>
-          <div><span>Publicados</span><strong>{published}</strong></div>
+          <span className="stat-label">Publicados</span>
+          <strong className="stat-number">{published}</strong>
+          <span className="stat-bar stat-bar-published" />
         </article>
         <article className="stat-card drafts">
-          <span className="stat-icon"><FileEdit size={24} /></span>
-          <div><span>Rascunhos</span><strong>{drafts}</strong></div>
+          <span className="stat-label">Rascunhos</span>
+          <strong className="stat-number">{drafts}</strong>
+          <span className="stat-bar stat-bar-drafts" />
         </article>
       </section>
 
