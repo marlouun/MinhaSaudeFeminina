@@ -1,4 +1,5 @@
 import {
+  Cloud,
   FilePlus2,
   Files,
   LayoutDashboard,
@@ -58,8 +59,8 @@ export function AdminLayout() {
         <div className="sidebar-local-notice">
           <ShieldCheck size={21} />
           <div>
-            <strong>Modo local</strong>
-            <span>Dados salvos somente neste navegador.</span>
+            <strong>Conectado ao Supabase</strong>
+            <span>Artigos compartilhados entre painel e aplicativo.</span>
           </div>
         </div>
 
@@ -73,7 +74,7 @@ export function AdminLayout() {
           <button type="button" className="menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
           <div className="topbar-title">
             <span>Minha Saúde Feminina</span>
-            <small>Gerenciamento de conteúdos</small>
+            <small><Cloud size={13} /> Conteúdos sincronizados pelo Supabase</small>
           </div>
           <div className="topbar-user" title="Administrador conectado">
             <span>{session?.displayName?.charAt(0).toUpperCase() || 'A'}</span>
