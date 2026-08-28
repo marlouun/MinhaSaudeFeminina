@@ -1,7 +1,6 @@
 import {
   FilePlus2,
   Files,
-  HeartPulse,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -33,10 +32,10 @@ export function AdminLayout() {
       {menuOpen && <button type="button" className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
       <aside className={`admin-sidebar${menuOpen ? ' is-open' : ''}`}>
         <div className="sidebar-brand">
-          <div className="brand-mark"><HeartPulse size={25} /></div>
+          <div className="brand-mark"><img src="/minha-saude-feminina.svg" alt="" aria-hidden="true" /></div>
           <div>
-            <strong>Minha Saúde</strong>
-            <span>Administração local</span>
+            <strong>Minha Saúde Feminina</strong>
+            <span>Painel administrativo</span>
           </div>
           <button type="button" className="sidebar-mobile-close" aria-label="Fechar menu" onClick={() => setMenuOpen(false)}><X size={21} /></button>
         </div>
@@ -73,14 +72,14 @@ export function AdminLayout() {
         <header className="admin-topbar">
           <button type="button" className="menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
           <div className="topbar-title">
-            <span>Painel administrativo</span>
-            <small>Gerenciamento local de conteúdos</small>
+            <span>Minha Saúde Feminina</span>
+            <small>Gerenciamento de conteúdos</small>
           </div>
           <div className="topbar-user" title="Administrador conectado">
             <span>{session?.displayName?.charAt(0).toUpperCase() || 'A'}</span>
             <div>
               <strong>{session?.displayName || 'Administrador'}</strong>
-              <small>Local</small>
+              <small>Administrador</small>
             </div>
           </div>
         </header>

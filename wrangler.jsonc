@@ -7,6 +7,6 @@
     "not_found_handling": "single-page-application"
   },
   "build": {
-    "command": "cd admin-web && npm install && npm run build"
+    "command": "npm run build"
   }
 }
