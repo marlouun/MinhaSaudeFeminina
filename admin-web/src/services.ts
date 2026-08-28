@@ -1,5 +1,5 @@
-import { SupabaseAdminAuthRepository } from './repositories/SupabaseAdminAuthRepository'
-import { SupabaseArticleRepository } from './repositories/SupabaseArticleRepository'
+import { LocalAdminAuthRepository } from './repositories/LocalAdminAuthRepository'
+import { LocalArticleRepository } from './repositories/LocalArticleRepository'
 
-export const adminAuthRepository = new SupabaseAdminAuthRepository()
-export const articleRepository = new SupabaseArticleRepository()
+export const adminAuthRepository = new LocalAdminAuthRepository()
+export const articleRepository = new LocalArticleRepository()
