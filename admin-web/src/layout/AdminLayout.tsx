@@ -9,19 +9,39 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
+const isNewArticleRoute = (pathname: string) =>
+  pathname === '/articles/new' || pathname.startsWith('/articles/new/')
+
 const navigation = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/articles', label: 'Artigos', icon: Files, end: true },
-  { to: '/articles/new', label: 'Novo artigo', icon: FilePlus2, end: true },
+  {
+    to: '/',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    isActive: (pathname: string) => pathname === '/',
+  },
+  {
+    to: '/articles',
+    label: 'Artigos',
+    icon: Files,
+    isActive: (pathname: string) =>
+      pathname === '/articles' || (pathname.startsWith('/articles/') && !isNewArticleRoute(pathname)),
+  },
+  {
+    to: '/articles/new',
+    label: 'Novo artigo',
+    icon: FilePlus2,
+    isActive: isNewArticleRoute,
+  },
 ]
 
 export function AdminLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { session, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   const handleLogout = () => {
     logout()
@@ -42,18 +62,21 @@ export function AdminLayout() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Menu principal">
-          {navigation.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-            >
-              <Icon size={20} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+          {navigation.map(({ to, label, icon: Icon, isActive }) => {
+            const active = isActive(pathname)
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={`sidebar-link${active ? ' active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => setMenuOpen(false)}
+              >
+                <Icon size={20} />
+                <span>{label}</span>
+              </Link>
+            )
+          })}
         </nav>
 
         <div className="sidebar-local-notice">
