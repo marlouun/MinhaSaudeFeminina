@@ -1,7 +1,6 @@
 package com.example.minhasaudefeminina.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -28,14 +27,16 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
+    onBackground = Color(0xFF2B1F24),
+    onSurface = Color(0xFF2B1F24),
+    onSurfaceVariant = Color(0xFF655B60),
 )
 
 @Composable
 fun MinhaSaudeFemininaTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Mantemos a identidade visual do app por padrão. O dynamicColor pode ser ativado explicitamente se necessário.
+    // O visual atual foi desenhado para tema claro. Fixar o modo claro evita textos claros
+    // sobre cards brancos quando o aparelho estiver usando tema escuro.
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -44,7 +45,6 @@ fun MinhaSaudeFemininaTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
