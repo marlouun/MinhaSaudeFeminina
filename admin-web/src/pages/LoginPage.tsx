@@ -1,4 +1,4 @@
-import { Eye, EyeOff, HeartPulse, LockKeyhole, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { LoadingScreen } from '../components/LoadingScreen'
@@ -57,26 +57,25 @@ export function LoginPage() {
     <main className="login-page">
       <section className="login-hero" aria-label="Apresentação do painel">
         <div className="login-brand">
-          <div className="login-brand-icon"><HeartPulse size={31} /></div>
+          <div className="login-brand-icon"><img src="/minha-saude-feminina.svg" alt="" aria-hidden="true" /></div>
           <div>
             <strong>Minha Saúde Feminina</strong>
-            <span>Trabalho acadêmico Unifebe</span>
+            <span>Painel administrativo</span>
           </div>
         </div>
         <div className="login-unifebe-logo">
           <img src="/unifebe-logo-transparent.png" alt="Unifebe — É Nossa. É Daqui." />
         </div>
         <div className="login-hero-content">
-          <span className="eyebrow"></span>
-          <h1>Para a Mulher <br />em todas as fases da vida.</h1>
-          <p>Escreva e publique seus artigos com facilidade. Por enquanto, tudo o que você fizer fica salvo com segurança apenas no seu navegador.</p>
-          <div className="login-feature"><ShieldCheck size={22} /><span>100% privado: nenhuma informação sai do seu navegador.</span></div>
-          <div className="login-feature"><LockKeyhole size={22} /><span>Sua senha é salva com proteção avançada de segurança.</span></div>
+          <span className="eyebrow">Conteúdo e cuidado</span>
+          <h1>Para a mulher<br />em todas as fases da vida.</h1>
+          <p>Escreva, revise e publique conteúdos de saúde em um painel com a mesma identidade visual do aplicativo Minha Saúde Feminina.</p>
+          <div className="login-feature"><ShieldCheck size={22} /><span>Área administrativa organizada para gerenciar os artigos.</span></div>
+          <div className="login-feature"><LockKeyhole size={22} /><span>Acesso protegido de acordo com o modo configurado no projeto.</span></div>
         </div>
       </section>
 
       <section className="login-panel">
-        {/* Elementos decorativos animados */}
         <div className="login-panel-deco" aria-hidden="true">
           <span className="deco-circle deco-circle-1" />
           <span className="deco-circle deco-circle-2" />
@@ -96,7 +95,7 @@ export function LoginPage() {
             <span className="login-card-icon"><LockKeyhole size={22} /></span>
             <div>
               <h2>{hasAdmin ? 'Entrar no painel' : 'Configurar administrador'}</h2>
-              <p>{hasAdmin ? 'Use a conta criada neste navegador.' : 'Esta etapa acontece apenas no primeiro acesso.'}</p>
+              <p>{hasAdmin ? 'Use sua conta administrativa.' : 'Esta etapa acontece apenas no primeiro acesso.'}</p>
             </div>
           </div>
 
@@ -172,13 +171,13 @@ export function LoginPage() {
 
             <button type="submit" className="btn btn-primary login-submit" disabled={submitting}>
               {submitting && <span className="spinner-border spinner-border-sm" aria-hidden="true" />}
-              {submitting ? 'Processando...' : hasAdmin ? 'Entrar' : 'Criar administrador local'}
+              {submitting ? 'Processando...' : hasAdmin ? 'Entrar' : 'Criar administrador'}
             </button>
           </form>
 
           <div className="local-security-note">
             <ShieldCheck size={18} />
-            <span>Modo temporário: apagar os dados do navegador também remove a conta e os artigos locais.</span>
+            <span>Use apenas uma conta administrativa autorizada para criar e editar os conteúdos.</span>
           </div>
         </div>
       </section>
