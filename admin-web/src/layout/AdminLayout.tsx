@@ -14,8 +14,8 @@ import { useAuth } from '../contexts/AuthContext'
 
 const navigation = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/articles', label: 'Artigos', icon: Files, end: false },
-  { to: '/articles/new', label: 'Novo artigo', icon: FilePlus2, end: false },
+  { to: '/articles', label: 'Artigos', icon: Files, end: true },
+  { to: '/articles/new', label: 'Novo artigo', icon: FilePlus2, end: true },
 ]
 
 export function AdminLayout() {
