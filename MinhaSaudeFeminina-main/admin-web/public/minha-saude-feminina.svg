@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Minha Saúde Feminina</title>
+  <desc id="desc">Símbolo de cuidado feminino com coração e sinal feminino.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="12" x2="108" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C56682"/>
+      <stop offset="1" stop-color="#C43A4A"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="32" fill="url(#bg)"/>
+  <path d="M64 82.5C54.5 73.9 39 63.2 39 49.5 39 40.9 45.4 35 53.4 35c5.1 0 8.6 2.4 10.6 5.7 2-3.3 5.5-5.7 10.6-5.7 8 0 14.4 5.9 14.4 14.5 0 13.7-15.5 24.4-25 33Z" fill="#fff"/>
+  <circle cx="64" cy="66" r="25" fill="none" stroke="#fff" stroke-width="6" opacity=".96"/>
+  <path d="M64 91v20M54 101h20" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+</svg>

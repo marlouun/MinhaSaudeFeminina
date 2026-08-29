@@ -1,0 +1,9 @@
+{
+  "name": "minha-saude-feminina",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix admin-web ci --no-audit --no-fund && npm --prefix admin-web run build",
+    "test:web": "npm --prefix admin-web ci --no-audit --no-fund && npm --prefix admin-web test"
+  }
+}
