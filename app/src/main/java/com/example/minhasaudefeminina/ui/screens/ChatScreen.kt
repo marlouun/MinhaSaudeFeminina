@@ -39,8 +39,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -65,9 +63,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isTyping by viewModel.isTyping.collectAsStateWithLifecycle()
     val pendingAiQuestion by viewModel.pendingAiQuestion.collectAsStateWithLifecycle()
-    val aiLoginRequired by viewModel.aiLoginRequired.collectAsStateWithLifecycle()
-    val aiLoginLoading by viewModel.aiLoginLoading.collectAsStateWithLifecycle()
-    val aiLoginError by viewModel.aiLoginError.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var text by rememberSaveable { mutableStateOf("") }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
@@ -185,7 +180,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
 
-    if (pendingAiQuestion != null && !aiLoginRequired) {
+    if (pendingAiQuestion != null) {
         AlertDialog(
             onDismissRequest = viewModel::declineAiConsent,
             title = { Text("Consultar assistente com IA?") },
@@ -200,31 +195,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
             dismissButton = {
                 TextButton(onClick = viewModel::declineAiConsent) { Text("Não enviar") }
             }
-        )
-    }
-
-    if (aiLoginRequired) {
-        var aiEmail by remember { mutableStateOf("") }
-        var aiPassword by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = viewModel::cancelAiLogin,
-            title = { Text("Acesso à assistente com IA") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Use a conta de acesso à IA liberada pela equipe do aplicativo. Ela é separada da conta local deste aparelho. Seu e-mail será enviado ao Supabase para entrar; sua senha não será salva. As respostas prontas continuam disponíveis sem esse acesso.")
-                    OutlinedTextField(value = aiEmail, onValueChange = { aiEmail = it.take(254) }, label = { Text("E-mail de acesso à IA") }, singleLine = true, enabled = !aiLoginLoading)
-                    OutlinedTextField(value = aiPassword, onValueChange = { aiPassword = it.take(256) }, label = { Text("Senha de acesso à IA") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), enabled = !aiLoginLoading)
-                    aiLoginError?.let { Text(it, color = RosaPrimario) }
-                    if (aiLoginLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = !aiLoginLoading && aiEmail.isNotBlank() && aiPassword.isNotBlank(), onClick = {
-                    viewModel.signInToAi(aiEmail, aiPassword)
-                    aiPassword = ""
-                }) { Text("Entrar e consultar") }
-            },
-            dismissButton = { TextButton(enabled = !aiLoginLoading, onClick = viewModel::cancelAiLogin) { Text("Continuar sem IA") } }
         )
     }
 
