@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.minhasaudefeminina"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "2.3-chat-fases"
+        versionCode = 6
+        versionName = "2.4-barra-status"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
