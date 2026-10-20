@@ -1,6 +1,7 @@
 package com.example.minhasaudefeminina.data.remote
 
 import com.example.minhasaudefeminina.model.MensagemChat
+import com.example.minhasaudefeminina.domain.chat.sessionFailureMessage
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,8 @@ class GeminiChatClient {
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             JSONObject(body).optString("answer").takeIf(String::isNotBlank)
                 ?: throw IllegalStateException("Resposta vazia")
+        } catch (failure: java.io.IOException) {
+            throw ChatAiException(0, sessionFailureMessage(failure))
         } finally {
             connection.disconnect()
         }
