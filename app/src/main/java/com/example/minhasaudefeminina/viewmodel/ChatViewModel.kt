@@ -11,6 +11,7 @@ import com.example.minhasaudefeminina.data.remote.ChatAiSession
 import com.example.minhasaudefeminina.data.remote.ChatAiException
 import com.example.minhasaudefeminina.data.repository.ChatRepository
 import com.example.minhasaudefeminina.domain.chat.PreparedChatResponses
+import com.example.minhasaudefeminina.domain.chat.buildChatContext
 import com.example.minhasaudefeminina.model.MensagemChat
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,7 +30,7 @@ class ChatViewModel(
     private val ai: GeminiChatClient = GeminiChatClient()
 ) : ViewModel() {
     private val sessionId = UUID.randomUUID().toString()
-    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v2", Context.MODE_PRIVATE)
+    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v3", Context.MODE_PRIVATE)
     private val consentKey = "consent_" + userId
     private val _consentGranted = MutableStateFlow(preferences.getBoolean(consentKey, false))
     val consentGranted: StateFlow<Boolean> = _consentGranted.asStateFlow()
@@ -82,10 +84,14 @@ class ChatViewModel(
         viewModelScope.launch {
             _isTyping.value = true
             try {
+                // Read Room directly before saving the new question. The UI StateFlow
+                // may still be empty after recreation or lag behind a prepared response.
+                val context = if (useAi) buildChatContext(repository.observeMessages(userId).first(), userId)
+                    else emptyList()
                 repository.saveMessage(newMessage(question, true))
                 val answer = if (!useAi) prepared ?: PreparedChatResponses.OFFLINE_FALLBACK
                     else try {
-                        ai.respond(question, emptyList(), aiSession.accessToken())
+                        ai.respond(question, context, aiSession.accessToken())
                     } catch (c: CancellationException) {
                         throw c
                     } catch (e: ChatAiException) {
