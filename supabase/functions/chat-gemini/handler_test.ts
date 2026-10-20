@@ -3,12 +3,13 @@ const assert = (value: unknown, message = "assertion failed") => { if (!value) t
 const session = "11111111-1111-4111-8111-111111111111";
 const token = "header." + btoa(JSON.stringify({ session_id: session })) + ".signature";
 const user = "22222222-2222-4222-8222-222222222222";
-function setup(options: { authStatus?: number; quota?: string; quotaError?: boolean; upstreamStatus?: number; anonymous?: boolean } = {}) {
+function setup(options: { authStatus?: number; quota?: string; quotaError?: boolean; upstreamStatus?: number; anonymous?: boolean; rotatedServer?: boolean } = {}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   const env: Record<string, string> = { SUPABASE_URL: "https://example.invalid", SUPABASE_SERVICE_ROLE_KEY: "server-secret", GEMINI_API_KEY: "gemini-secret" };
   const handler = createHandler({ env: name => env[name], fetch: ((url: string, init?: RequestInit) => {
     calls.push({ url, init });
     if (url.endsWith("/user")) return Promise.resolve(Response.json({ id: user, is_anonymous: options.anonymous ?? false, email_confirmed_at: "2026-01-01" }, { status: options.authStatus ?? 200 }));
+    if (url.includes("reserve_chat_quota") && options.authStatus === 401 && !options.rotatedServer) return Promise.resolve(Response.json({}, { status: 403 }));
     if (url.includes("reserve_chat_quota")) return Promise.resolve(Response.json({ status: options.quota ?? "ok" }, { status: options.quotaError ? 500 : 200 }));
     return Promise.resolve(Response.json({ candidates: [{ content: { parts: [{ text: "Teste concluído." }] } }] }, { status: options.upstreamStatus ?? 200 }));
   }) as typeof fetch });
@@ -28,7 +29,7 @@ Deno.test("invalid token and anonymous user cannot spend quota", async () => {
   for (const option of [{ authStatus: 401 }, { anonymous: true }]) {
     const { handler, calls } = setup(option);
     assert([401, 403].includes((await handler(request())).status));
-    assert(calls.length === 1);
+    assert(calls.length === (option.authStatus === 401 ? 2 : 1));
   }
 });
 Deno.test("unapproved or revoked session is rejected before Gemini", async () => {
@@ -75,4 +76,11 @@ Deno.test("server-only test still requires quota reservation", async () => {
   const { handler, calls } = setup();
   assert((await handler(request(undefined, "server-secret"))).status === 200);
   assert(calls.length === 2 && calls[0].url.includes("reserve_chat_quota"));
+});
+
+Deno.test("rotated server credential must pass the service-only RPC", async () => {
+  const { handler, calls } = setup({ authStatus: 401, rotatedServer: true });
+  assert((await handler(request())).status === 200);
+  assert(calls.length === 3);
+  assert((calls[1].init!.headers as Record<string, string>).Authorization === "Bearer " + token);
 });

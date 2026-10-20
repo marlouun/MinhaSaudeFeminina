@@ -1,4 +1,4 @@
-export const MODEL = "gemini-2.5-flash-lite";
+export const MODEL = "gemini-3.5-flash-lite";
 const MAX_BODY_BYTES = 18000;
 const SYSTEM = [
 "Você é a assistente educativa do Minha Saúde Feminina. Responda em português do Brasil, com empatia e objetividade.",
@@ -55,12 +55,18 @@ export function createHandler(deps: Dependencies) {
       const serverCall = token === serviceKey;
       let userId: string | null = null;
       let sessionId: string | null = null;
+      let verifyServerCredential = false;
       if (!serverCall) {
         const auth = await deps.fetch(project + "/auth/v1/user", {
           headers: { apikey: serviceKey, Authorization: authorization },
           signal: AbortSignal.timeout(5000),
         });
-        if (!auth.ok) return json(401, { error: "Sessão da IA inválida ou expirada." });
+        if (!auth.ok) {
+          // Legacy server JWTs may rotate independently of the environment's
+          // cached literal value. The service-only RPC below verifies their
+          // database role cryptographically; no decoded role is trusted.
+          verifyServerCredential = true;
+        } else {
         const user = await auth.json();
         if (user.is_anonymous || !user.email_confirmed_at || !user.id) return json(403, { error: "Use uma conta confirmada e autorizada para a IA." });
         userId = user.id;
@@ -71,6 +77,7 @@ export function createHandler(deps: Dependencies) {
           sessionId = JSON.parse(atob(payload)).session_id;
         } catch { return json(401, { error: "Sessão inválida." }); }
         if (typeof sessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(sessionId)) return json(401, { error: "Sessão inválida." });
+        }
       }
 
       let input: any;
@@ -84,11 +91,13 @@ export function createHandler(deps: Dependencies) {
       // Atomic reservation across every edge instance. Failed upstream calls
       // also count; retrying cannot bypass the quota.
       const reservation = await deps.fetch(project + "/rest/v1/rpc/reserve_chat_quota", {
-        method: "POST", headers: { apikey: serviceKey, Authorization: "Bearer " + serviceKey, "Content-Type": "application/json" },
+        method: "POST", headers: { apikey: serviceKey, Authorization: "Bearer " + (verifyServerCredential ? token : serviceKey), "Content-Type": "application/json" },
         body: JSON.stringify({ p_user_id: userId, p_session_id: sessionId }),
         signal: AbortSignal.timeout(5000),
       });
-      if (!reservation.ok) return json(503, { error: "Não foi possível verificar o limite de uso." });
+      if (!reservation.ok) return verifyServerCredential
+        ? json(401, { error: "Sessão da IA inválida ou expirada." })
+        : json(503, { error: "Não foi possível verificar o limite de uso." });
       const quota = await reservation.json();
       if (quota.status === "forbidden") return json(403, { error: "Esta conta ainda não tem acesso à IA. Solicite a liberação à equipe do aplicativo." });
       if (quota.status === "disabled") return json(503, { error: "IA temporariamente desativada." });

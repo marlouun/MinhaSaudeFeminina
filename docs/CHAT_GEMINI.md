@@ -13,10 +13,21 @@ As perguntas previstas continuam sendo respondidas offline. Perguntas novas só 
 - A senha não é salva. O token fica somente na memória e é descartado ao sair da tela do chat ou ao expirar. Não há chave Gemini, service role ou refresh token no APK.
 - As tabelas de controle guardam apenas UUID de conta e contadores, sem perguntas, respostas ou IPs. Contadores antigos são removidos após dois dias.
 
+## Estado verificado em 20/10/2026
+
+- Supabase ativo no plano Free; `GEMINI_API_KEY` cadastrado.
+- Migração aplicada após autorização explícita; permissões, RLS, bloqueio por autorização, cotas por minuto/dia e interrupção do serviço conferidos com testes transacionais revertidos.
+- Edge Function `chat-gemini` ativa, versão 3, com `verify_jwt=true`.
+- Requisições sem token, com token inválido e com chave anon pública foram recusadas com 401.
+- Teste real autenticado no dashboard: HTTP 200, resposta "Dois mais dois é igual a quatro." usando `gemini-3.5-flash-lite`.
+- 10 testes do handler aprovados. CI Android e painel web aprovados no commit anterior (as últimas alterações afetam somente backend, seus testes e esta documentação).
+- Nenhuma conta normal foi liberada automaticamente para IA. É necessário cadastrar/autorizar as contas do piloto e instalar o APK da PR. O fluxo em dispositivo Android ainda não foi testado.
+- Nenhum faturamento pago foi ativado e a PR não foi mesclada.
+
 ## Configuração e ativação
 
-1. O segredo `GEMINI_API_KEY` deve estar em Edge Functions > Secrets. O modelo permanece `gemini-2.5-flash-lite`.
-2. Aplicar `supabase/migrations/20261020120412_secure_chat_quota.sql` somente após autorização para criar as tabelas e permissões. Não altera tabelas de artigos ou dados locais Android.
+1. O segredo `GEMINI_API_KEY` deve estar em Edge Functions > Secrets. O modelo é `gemini-3.5-flash-lite`. O modelo anterior `gemini-2.5-flash-lite` retornou 404 no teste real deste projeto.
+2. Migração aplicada neste projeto: `supabase/migrations/20261020120412_secure_chat_quota.sql`. Em outro ambiente, aplicar somente após autorização para criar as tabelas e permissões. Não altera tabelas de artigos ou dados locais Android.
 3. Criar uma conta normal de acesso à IA no Supabase Auth, com e-mail confirmado. Não usar a conta administrativa do painel no celular.
 4. Autorizar uma conta específica pelo UUID em uma operação administrativa:
 
@@ -45,7 +56,7 @@ Para revogar apenas uma conta:
 update private.chat_access set enabled = false where user_id = 'UUID_DA_CONTA_AUTH';
 ```
 
-O operador pode executar uma pergunta fictícia pelo testador do dashboard usando a credencial `service_role` que o próprio dashboard administra. O handler aceita essa credencial secreta para chamadas de servidor; aplica a mesma reserva persistente (ator `server`, também limitado a 5/dia). Ela nunca deve ser copiada para o aplicativo ou para mensagens. Tokens arbitrários com role forjada não são aceitos.
+O operador pode executar uma pergunta fictícia pelo testador do dashboard usando a credencial `service_role` que o próprio dashboard administra. O handler aceita essa credencial secreta para chamadas de servidor; aplica a mesma reserva persistente (ator `server`, também limitado a 5/dia). Ela nunca deve ser copiada para o aplicativo ou para mensagens. Tokens arbitrários com role forjada não são aceitos. Para chaves administrativas legadas rotacionadas, a própria RPC restrita valida a credencial com as permissões PostgREST antes de reservar a cota, sem confiar em roles decodificadas.
 
 ## Verificação
 
