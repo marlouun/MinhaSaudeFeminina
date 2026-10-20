@@ -1,28 +1,38 @@
 package com.example.minhasaudefeminina.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.minhasaudefeminina.data.remote.GeminiChatClient
 import com.example.minhasaudefeminina.data.repository.ChatRepository
+import com.example.minhasaudefeminina.domain.chat.PreparedChatResponses
 import com.example.minhasaudefeminina.model.MensagemChat
-import java.text.Normalizer
 import java.util.UUID
-import java.util.regex.Pattern
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ChatViewModel(
     private val repository: ChatRepository,
-    private val userId: String
+    private val userId: String,
+    context: Context,
+    private val ai: GeminiChatClient = GeminiChatClient()
 ) : ViewModel() {
     private val sessionId = UUID.randomUUID().toString()
+    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v1", Context.MODE_PRIVATE)
+    private val consentKey = "consent_" + userId
+    private val _consentGranted = MutableStateFlow(preferences.getBoolean(consentKey, false))
+    val consentGranted: StateFlow<Boolean> = _consentGranted.asStateFlow()
+    private val _pendingAiQuestion = MutableStateFlow<String?>(null)
+    val pendingAiQuestion: StateFlow<String?> = _pendingAiQuestion.asStateFlow()
 
     val messages: StateFlow<List<MensagemChat>> = repository.observeMessages(userId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -35,18 +45,55 @@ class ChatViewModel(
     }
 
     fun sendMessage(text: String) {
-        val cleanText = text.trim()
-        if (cleanText.isEmpty() || _isTyping.value) return
+        val clean = text.trim().take(500)
+        if (clean.isBlank() || _isTyping.value || _pendingAiQuestion.value != null) return
+        val ready = PreparedChatResponses.findAnswer(clean)
+        if (ready == null && !_consentGranted.value) {
+            _pendingAiQuestion.value = clean
+            return
+        }
+        processMessage(clean, ready, useAi = ready == null)
+    }
+
+    fun acceptAiConsent() {
+        val pending = _pendingAiQuestion.value ?: return
+        _pendingAiQuestion.value = null
+        preferences.edit().putBoolean(consentKey, true).apply()
+        _consentGranted.value = true
+        processMessage(pending, null, useAi = true)
+    }
+
+    fun declineAiConsent() {
+        val pending = _pendingAiQuestion.value ?: return
+        _pendingAiQuestion.value = null
+        processMessage(pending, PreparedChatResponses.DECLINED_FALLBACK, useAi = false)
+    }
+
+    private fun processMessage(question: String, prepared: String?, useAi: Boolean) {
         viewModelScope.launch {
-            repository.saveMessage(newMessage(cleanText, true))
             _isTyping.value = true
-            delay(650)
-            repository.saveMessage(newMessage(generateResponse(cleanText), false))
-            _isTyping.value = false
+            try {
+                // Historical context is built before persisting the new message, avoiding duplication.
+                val history = if (useAi) messages.first().takeLast(6) else emptyList()
+                repository.saveMessage(newMessage(question, true))
+                val answer = if (!useAi) prepared ?: PreparedChatResponses.OFFLINE_FALLBACK
+                    else try {
+                        ai.respond(question, history)
+                    } catch (c: CancellationException) {
+                        throw c
+                    } catch (_: Exception) {
+                        PreparedChatResponses.OFFLINE_FALLBACK
+                    }
+                repository.saveMessage(newMessage(answer, false))
+            } finally {
+                _isTyping.value = false
+            }
         }
     }
 
     fun clearHistory() {
+        if (_isTyping.value) return
+        _pendingAiQuestion.value = null
         viewModelScope.launch {
             repository.clearHistory(userId)
             repository.ensureGreeting(userId, sessionId)
@@ -62,41 +109,8 @@ class ChatViewModel(
         enviadoEm = System.currentTimeMillis()
     )
 
-    private fun normalize(text: String): String {
-        val nfd = Normalizer.normalize(text, Normalizer.Form.NFD)
-        return Pattern.compile("\\p{InCombiningDiacriticalMarks}+")
-            .matcher(nfd)
-            .replaceAll("")
-            .lowercase()
-    }
-
-    private fun generateResponse(query: String): String {
-        val q = normalize(query)
-        return when {
-            q.matches(Regex("(oi|ola|bom dia|boa tarde|boa noite).*")) ->
-                "Olá! Posso explicar informações gerais e ajudar você a organizar sintomas. Em caso de urgência, procure atendimento imediatamente."
-            q.contains("corrimento") ->
-                "Mudanças de cor, cheiro, quantidade, coceira ou dor merecem avaliação na UBS. Evite automedicação e registre quando os sintomas começaram."
-            q.contains("colica") || (q.contains("dor") && q.contains("menstr")) ->
-                "Calor local e movimento leve podem ajudar em cólicas leves. Dor incapacitante, febre, desmaio ou piora rápida são sinais para procurar atendimento."
-            q.contains("atraso") || q.contains("gravid") ->
-                "Atrasos podem ter várias causas. Se houver possibilidade de gravidez, faça um teste conforme a orientação do produto e procure a UBS se o resultado for positivo ou a dúvida persistir."
-            q.contains("urina") || q.contains("xixi") || q.contains("ardor") ->
-                "Ardor, urgência ou dor para urinar podem indicar um problema urinário. Febre, sangue na urina ou dor nas costas exigem avaliação rápida."
-            q.contains("violencia") || q.contains("agress") || q.contains("abuso") ->
-                "Você não está sozinha. Ligue 180 para orientação. Se houver risco imediato, ligue 190 ou procure um local seguro."
-            q.contains("anticoncepc") || q.contains("diu") || q.contains("pilula") ->
-                "A escolha do método depende do histórico e das necessidades de cada pessoa. A UBS oferece orientação de planejamento reprodutivo; não inicie ou interrompa hormônios apenas com base no chat."
-            q.contains("mama") || q.contains("caroco") || q.contains("nodulo") ->
-                "Uma alteração nova na mama, secreção espontânea, retração da pele ou nódulo persistente deve ser avaliado por um profissional."
-            else ->
-                "Essa dúvida é importante. Anote quando começou, frequência, intensidade e sinais associados. Leve o registro à UBS, pois o chat não consegue diagnosticar nem prescrever tratamento."
-        }
-    }
-
     companion object {
-        fun factory(repository: ChatRepository, userId: String): ViewModelProvider.Factory = viewModelFactory {
-            initializer { ChatViewModel(repository, userId) }
-        }
+        fun factory(repository: ChatRepository, userId: String, context: Context): ViewModelProvider.Factory =
+            viewModelFactory { initializer { ChatViewModel(repository, userId, context) } }
     }
 }
