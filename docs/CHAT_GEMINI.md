@@ -10,7 +10,7 @@ O app mantém respostas prontas offline e só envia perguntas abertas após a au
 - Em perguntas futuras, a sessão é reutilizada ou renovada, preservando a cota diária daquele identificador.
 - As respostas prontas continuam ilimitadas e funcionam offline.
 - Se Gemini, o servidor ou as cotas falharem, o chat mantém o histórico e exibe orientação educativa ou um erro amigável.
-- Somente a pergunta atual é enviada à IA após consentimento; o histórico fica exclusivamente no aparelho e nenhum perfil ou calendário é enviado automaticamente. A autorização pode ser revogada em **Desativar IA**. O consentimento anterior foi invalidado para apresentar o aviso atualizado.
+- A pergunta atual e até 6 mensagens recentes da mesma conta local são enviadas à IA após consentimento explícito, incluindo perguntas e respostas prontas/da IA para manter contexto. Cada mensagem de contexto tem no máximo 500 caracteres. O histórico completo continua no aparelho; perfil, calendário e sintomas registrados não são enviados automaticamente. A autorização pode ser revogada em **Desativar IA**. O consentimento anterior foi invalidado para explicar o novo compartilhamento.
 
 ## Limites iniciais no banco de dados
 
@@ -74,7 +74,7 @@ O modelo é `gemini-3.5-flash-lite`. Consulte o plano e as quotas atuais no Goog
 
 Os [termos do Gemini](https://ai.google.dev/gemini-api/terms), consultados em 20/10/2026, informam que o serviço gratuito pode usar entradas/saídas para melhorar produtos, inclusive com revisão humana, e proíbem submeter dados pessoais, confidenciais ou sensíveis. Também restringem clientes acessíveis a menores de 18 anos e vedam aconselhamento médico/prática clínica. O aviso no Android esclarece esses pontos; consentimento não elimina as restrições do provedor.
 
-Antes de uso público: selecionar condições/provedor adequados a dados sensíveis, definir base legal aplicável da LGPD, política de privacidade, controlador/operadores, retenção/eliminação e transferência internacional, confirmar público adulto e revisar conteúdo com responsável. Nenhum faturamento foi habilitado. O app não envia perfil, calendário, sintomas registrados ou histórico automaticamente; o texto livre ainda pode conter dados sensíveis e exige uma solução de privacidade antes da liberação pública.
+Antes de uso público: selecionar condições/provedor adequados a dados sensíveis, definir base legal aplicável da LGPD, política de privacidade, controlador/operadores, retenção/eliminação e transferência internacional, confirmar público adulto e revisar conteúdo com responsável. Nenhum faturamento foi habilitado. Após consentimento atualizado, o app envia somente a pergunta e o contexto recente do chat. Não envia perfil, calendário ou sintomas registrados; o texto livre ainda pode conter dados sensíveis e exige uma solução de privacidade antes da liberação pública.
 
 ## Espaçamento do teclado no chat
 
@@ -83,3 +83,12 @@ O recuo do teclado é tratado uma única vez no Scaffold pai, que consome seus i
 ## Diagnóstico do teste em celular — versão 2.1-chat-anon (código 3)
 
 Foi relatado retorno local de falha às 19h55. Nos registros consultados não apareceu uma nova sessão anônima ou chamada à função correspondente. Isso não confirma a causa no aparelho. O APK passa a distinguir DNS, timeout, TLS, rede, armazenamento seguro e falha de cadastro/renovação por códigos sem expor tokens, perguntas ou mensagens internas de exceção. O tratamento não desativa validação TLS nem autenticação e não registra dados pessoais. A causa final depende de repetir o teste neste APK e informar o código exibido; o teste real anterior de backend continua aprovado.
+
+## Contexto na transição de respostas prontas para IA — 2.2-chat-contexto
+
+- Corrigido o envio vazio de histórico: um pedido como “explique melhor” agora inclui a pergunta anterior e a resposta pronta.
+- O ViewModel lê a conversa persistida no Room antes de gravar a nova pergunta. Não depende do cache visual, que pode estar vazio na recriação da tela; a pergunta atual não é duplicada.
+- Apenas mensagens da conta local atual, até 6 de 500 caracteres, em ordem, com papéis `user`/`model`. Saudações iniciais isoladas são omitidas. Limpar conversa remove o contexto anterior.
+- O aviso explica o envio do contexto; quem já autorizou verá novamente a solicitação (`ai_consent_v3`). Recusar continua impedindo envio e respostas prontas continuam offline e ilimitadas.
+- Backend v4 já aceita esse contrato; não há mudança de segredo, autenticação, quotas ou banco. Foram adicionados testes Android da montagem do contexto e teste Deno da entrega em ordem ao provedor.
+- Esta mudança não remove a restrição do Gemini gratuito a dados pessoais/sensíveis: continue usando apenas perguntas fictícias ou gerais, sem dados reais de saúde.
