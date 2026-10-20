@@ -42,7 +42,7 @@ export function createHandler(deps: Dependencies) {
   return async (req: Request): Promise<Response> => {
     if (req.method !== "POST") return json(405, { error: "Método inválido." });
     const authorization = req.headers.get("authorization");
-    if (!authorization?.startsWith("Bearer ")) return json(401, { error: "Entre na sua conta de acesso à IA." });
+    if (!authorization?.startsWith("Bearer ")) return json(401, { error: "Sessão anônima da IA necessária." });
     const token = authorization.slice(7);
     const project = deps.env("SUPABASE_URL");
     const serviceKey = deps.env("SUPABASE_SERVICE_ROLE_KEY");
@@ -68,7 +68,7 @@ export function createHandler(deps: Dependencies) {
           verifyServerCredential = true;
         } else {
         const user = await auth.json();
-        if (user.is_anonymous || !user.email_confirmed_at || !user.id) return json(403, { error: "Use uma conta confirmada e autorizada para a IA." });
+        if (!user?.id || typeof user.id !== "string") return json(401, { error: "Sessão da IA inválida." });
         userId = user.id;
         // Decode only after Auth has validated the token. SQL checks that the
         // matching session still exists, so logout/revocation takes effect.
@@ -99,7 +99,7 @@ export function createHandler(deps: Dependencies) {
         ? json(401, { error: "Sessão da IA inválida ou expirada." })
         : json(503, { error: "Não foi possível verificar o limite de uso." });
       const quota = await reservation.json();
-      if (quota.status === "forbidden") return json(403, { error: "Esta conta ainda não tem acesso à IA. Solicite a liberação à equipe do aplicativo." });
+      if (quota.status === "forbidden") return json(403, { error: "Sessão da IA inválida ou revogada." });
       if (quota.status === "disabled") return json(503, { error: "IA temporariamente desativada." });
       if (quota.status !== "ok") return json(429, { error: "Limite de consultas atingido. Tente novamente mais tarde." });
 
