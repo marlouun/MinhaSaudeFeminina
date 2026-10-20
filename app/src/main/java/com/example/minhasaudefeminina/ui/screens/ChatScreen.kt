@@ -61,6 +61,7 @@ import java.util.Locale
 fun ChatScreen(viewModel: ChatViewModel) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isTyping by viewModel.isTyping.collectAsStateWithLifecycle()
+    val pendingAiQuestion by viewModel.pendingAiQuestion.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var text by rememberSaveable { mutableStateOf("") }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
@@ -171,6 +172,25 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
         }
+    }
+
+
+    if (pendingAiQuestion != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::declineAiConsent,
+            title = { Text("Consultar assistente com IA?") },
+            text = {
+                Text(
+                    "Esta dúvida não possui resposta pronta. Se você autorizar, o texto desta mensagem e até 6 mensagens recentes serão enviados ao Google Gemini por um serviço intermediário. Não inclua nome, CPF, endereço ou outros dados que identifiquem você. O serviço externo poderá processar informações sensíveis de saúde conforme suas próprias regras de privacidade. A IA pode errar, não oferece diagnóstico nem substitui atendimento profissional. Você pode continuar usando as respostas prontas sem autorizar."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::acceptAiConsent) { Text("Autorizo o envio", color = RosaPrimario) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::declineAiConsent) { Text("Não enviar") }
+            }
+        )
     }
 
     if (showClearDialog) {
