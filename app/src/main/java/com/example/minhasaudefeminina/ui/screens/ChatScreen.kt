@@ -184,7 +184,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             title = { Text("Consultar assistente com IA?") },
             text = {
                 Text(
-                    "Versão de testes para maiores de 18 anos. Use apenas perguntas fictícias e gerais. Ao autorizar, esta e futuras perguntas sem resposta pronta serão enviadas ao Google Gemini, sem o histórico local, perfil ou calendário. No plano gratuito, o Google pode usar mensagens e respostas para melhorar seus produtos, inclusive com revisão humana. Não envie informações pessoais, confidenciais, sintomas ou dados reais de saúde. A IA pode errar e não oferece diagnóstico ou prescrição. As respostas prontas continuam disponíveis sem consentimento. Você pode revogar a autorização em Desativar IA."
+                    "Versão de testes para maiores de 18 anos. Use apenas perguntas fictícias e gerais. Ao autorizar, esta e futuras perguntas sem resposta pronta serão enviadas ao Google Gemini junto de até 6 mensagens recentes desta conversa, incluindo suas perguntas e as respostas prontas ou da IA, para manter o contexto. Perfil, calendário e sintomas registrados não serão enviados. No plano gratuito, o Google pode usar mensagens e respostas para melhorar seus produtos, inclusive com revisão humana. Não envie informações pessoais, confidenciais, sintomas ou dados reais de saúde. A IA pode errar e não oferece diagnóstico ou prescrição. As respostas prontas continuam disponíveis sem consentimento. Você pode revogar a autorização em Desativar IA."
                 )
             },
             confirmButton = {
