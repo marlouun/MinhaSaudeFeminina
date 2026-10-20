@@ -29,7 +29,7 @@ class ChatViewModel(
     private val ai: GeminiChatClient = GeminiChatClient()
 ) : ViewModel() {
     private val sessionId = UUID.randomUUID().toString()
-    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v1", Context.MODE_PRIVATE)
+    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v2", Context.MODE_PRIVATE)
     private val consentKey = "consent_" + userId
     private val _consentGranted = MutableStateFlow(preferences.getBoolean(consentKey, false))
     val consentGranted: StateFlow<Boolean> = _consentGranted.asStateFlow()
@@ -66,6 +66,13 @@ class ChatViewModel(
         processMessage(pending, null, useAi = true)
     }
 
+    fun revokeAiConsent() {
+        if (_isTyping.value) return
+        preferences.edit().putBoolean(consentKey, false).apply()
+        _consentGranted.value = false
+        _pendingAiQuestion.value = null
+    }
+
     fun declineAiConsent() {
         val pending = _pendingAiQuestion.value ?: return
         _pendingAiQuestion.value = null
@@ -85,7 +92,7 @@ class ChatViewModel(
                     } catch (c: CancellationException) {
                         throw c
                     } catch (e: ChatAiException) {
-                        if (e.status == 401) aiSession.clearVolatile()
+                        if (e.status == 401) aiSession.invalidateAccessToken()
                         e.message ?: PreparedChatResponses.OFFLINE_FALLBACK
                     } catch (e: IllegalStateException) {
                         if (e.message?.contains("acesso anônimo") == true) e.message!!
