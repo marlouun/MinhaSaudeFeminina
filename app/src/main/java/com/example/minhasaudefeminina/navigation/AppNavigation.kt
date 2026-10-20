@@ -112,7 +112,7 @@ fun AppNavigation(
     val chatContext = LocalContext.current
     val chatViewModel: ChatViewModel = viewModel(
         key = "chat-${user.id}",
-        factory = ChatViewModel.factory(container.chatRepository, user.id, chatContext)
+        factory = ChatViewModel.factory(container.chatRepository, container.profileRepository, user.id, chatContext)
     )
     val profileViewModel: PerfilViewModel = viewModel(
         key = "profile-${user.id}",
