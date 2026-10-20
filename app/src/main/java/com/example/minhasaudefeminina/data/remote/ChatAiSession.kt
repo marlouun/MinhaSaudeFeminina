@@ -1,5 +1,8 @@
 package com.example.minhasaudefeminina.data.remote
 
+import com.example.minhasaudefeminina.domain.chat.AnonymousSessionLifecycle
+import com.example.minhasaudefeminina.domain.chat.AnonymousTokens
+import com.example.minhasaudefeminina.domain.chat.SessionRefreshRejected
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -25,58 +28,47 @@ class ChatAiSession(context: Context, localUserId: String) {
     private val preferenceKey = "account_" + localUserId
     private val keyAlias = "msf_chat_ai_aes_v1"
 
-    @Volatile private var cached: Tokens? = null
-
-    suspend fun accessToken(): String = withContext(Dispatchers.IO) {
-        synchronized(this@ChatAiSession) {
-            val current = cached ?: restore()
-            if (current != null && current.expiresAt > System.currentTimeMillis() + 60_000) {
-                return@synchronized current.access
+    private val lifecycle = AnonymousSessionLifecycle(
+        restore = ::restore,
+        persist = ::save,
+        refresh = { refreshToken ->
+            try {
+                parseTokens(request("/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", refreshToken)))
+            } catch (failure: AuthHttpException) {
+                if (failure.status in listOf(400, 401)) throw SessionRefreshRejected()
+                throw failure
             }
-            if (current != null) {
-                try {
-                    return@synchronized save(parseTokens(request(
-                        "/auth/v1/token?grant_type=refresh_token",
-                        JSONObject().put("refresh_token", current.refresh),
-                    )))
-                } catch (failure: AuthHttpException) {
-                    // Revoked/expired refresh tokens cannot be recovered. Other
-                    // failures must not create new identities and evade quotas.
-                    if (failure.status !in listOf(400, 401)) throw failure
-                    preferences.edit().remove(preferenceKey).commit()
-                    cached = null
-                }
-            }
+        },
+        create = {
             val payload = request("/auth/v1/signup", JSONObject().put("data", JSONObject()))
-            if (!payload.optJSONObject("user")!!.optBoolean("is_anonymous")) {
-                throw IllegalStateException("A autenticação anônima não foi iniciada.")
+            check(payload.optJSONObject("user")?.optBoolean("is_anonymous") == true) {
+                "A autenticação anônima não foi iniciada."
             }
-            save(parseTokens(payload))
-        }
-    }
+            parseTokens(payload)
+        },
+        remove = { preferences.edit().remove(preferenceKey).commit(); Unit },
+    )
 
-    fun clearVolatile() {
-        cached = null
-    }
+    suspend fun accessToken(): String = withContext(Dispatchers.IO) { lifecycle.accessToken() }
+    fun invalidateAccessToken() = lifecycle.invalidateAccessToken()
+    fun clearVolatile() = lifecycle.clearVolatile()
 
-    private fun save(tokens: Tokens): String {
+    private fun save(tokens: AnonymousTokens) {
         val raw = JSONObject()
             .put("access", tokens.access).put("refresh", tokens.refresh)
             .put("expiresAt", tokens.expiresAt).toString()
         check(preferences.edit().putString(preferenceKey, encrypt(raw)).commit()) {
             "Não foi possível salvar a sessão segura."
         }
-        cached = tokens
-        return tokens.access
     }
 
-    private fun restore(): Tokens? {
+    private fun restore(): AnonymousTokens? {
         val encrypted = preferences.getString(preferenceKey, null) ?: return null
         return try {
             val json = JSONObject(decrypt(encrypted))
-            Tokens(
+            AnonymousTokens(
                 json.getString("access"), json.getString("refresh"), json.getLong("expiresAt")
-            ).also { cached = it }
+            )
         } catch (_: Exception) {
             // Keystore invalidation or corrupt data; do not use corrupt tokens.
             preferences.edit().remove(preferenceKey).commit()
@@ -84,12 +76,12 @@ class ChatAiSession(context: Context, localUserId: String) {
         }
     }
 
-    private fun parseTokens(payload: JSONObject): Tokens {
+    private fun parseTokens(payload: JSONObject): AnonymousTokens {
         val access = payload.optString("access_token")
         val refresh = payload.optString("refresh_token")
         if (access.isBlank() || refresh.isBlank()) throw IllegalStateException("Sessão anônima inválida.")
         val ttl = payload.optLong("expires_in", 3600L).coerceAtLeast(120L)
-        return Tokens(access, refresh, System.currentTimeMillis() + ttl * 1000)
+        return AnonymousTokens(access, refresh, System.currentTimeMillis() + ttl * 1000)
     }
 
     private fun request(path: String, body: JSONObject): JSONObject {
@@ -104,6 +96,9 @@ class ChatAiSession(context: Context, localUserId: String) {
         try {
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             if (conn.responseCode !in 200..299) {
+                if (path == "/auth/v1/signup" && conn.responseCode == 429) {
+                    throw IllegalStateException("Limite de criação de sessões atingido. Tente novamente mais tarde; as respostas prontas continuam disponíveis.")
+                }
                 if (path == "/auth/v1/signup" && conn.responseCode in 400..499) {
                     throw IllegalStateException(
                         "O acesso anônimo ainda não está habilitado no Supabase. As respostas prontas continuam disponíveis."
@@ -146,6 +141,5 @@ class ChatAiSession(context: Context, localUserId: String) {
         return String(cipher.doFinal(bytes), Charsets.UTF_8)
     }
 
-    private data class Tokens(val access: String, val refresh: String, val expiresAt: Long)
     private class AuthHttpException(val status: Int) : Exception("Falha de autenticação anônima: " + status)
 }
