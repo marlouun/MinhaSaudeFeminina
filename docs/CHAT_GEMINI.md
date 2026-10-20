@@ -1,73 +1,54 @@
-# Chat híbrido Gemini
+# Chat híbrido Gemini sem segundo login
 
-As perguntas previstas continuam sendo respondidas offline. Perguntas novas só são enviadas após consentimento e login separado no acesso à IA. O login e os dados locais do aplicativo continuam locais.
+O app mantém respostas prontas offline e só envia perguntas abertas após a autorização da usuária. O acesso ao Gemini ocorre automaticamente com uma identidade anônima do Supabase Auth, **sem exigir e-mail ou senha de acesso à IA**. As contas normais do Android continuam locais.
 
-## Proteção implementada
+## Fluxo
 
-- `chat-gemini` exige `verify_jwt=true` e valida o token com Supabase Auth (`/auth/v1/user`). Chaves públicas não são identidade.
-- Contas devem ter e-mail confirmado, não podem ser anônimas e precisam estar habilitadas em `private.chat_access`.
-- Cada chamada também confere a existência/validade da sessão em `auth.sessions` e o bloqueio da conta. A autorização não vem de `user_metadata`.
-- Reservas atômicas no Postgres impedem ultrapassar cotas com chamadas simultâneas ou em várias instâncias. Máximos: 2/minuto e 5/dia por conta; 8/minuto e 18/dia no projeto inteiro. O dia acompanha `America/Los_Angeles`, usado pela cota diária Gemini.
-- Tentativas com falha no provedor também contam. Sem banco/segredo/autorização, o serviço não chama Gemini.
-- O corpo real é limitado a 18 KB; pergunta e mensagens têm até 500 caracteres e histórico até 6 mensagens.
-- A senha não é salva. O token fica somente na memória e é descartado ao sair da tela do chat ou ao expirar. Não há chave Gemini, service role ou refresh token no APK.
-- As tabelas de controle guardam apenas UUID de conta e contadores, sem perguntas, respostas ou IPs. Contadores antigos são removidos após dois dias.
+- Primeira pergunta não prevista: diálogo de consentimento antes do envio de dados para o Google Gemini.
+- Depois do consentimento, o app cria automaticamente uma sessão anônima no Supabase Auth.
+- A identidade e os tokens de atualização são preservados criptografados no Android Keystore/SharedPreferences, separados por conta local.
+- Em perguntas futuras, a sessão é reutilizada ou renovada, preservando a cota diária daquele identificador.
+- As respostas prontas continuam ilimitadas e funcionam offline.
+- Se Gemini, o servidor ou as cotas falharem, o chat mantém o histórico e exibe orientação educativa ou um erro amigável.
+- Somente a pergunta e até seis mensagens recentes do chat são enviadas à IA após consentimento; nenhum perfil ou calendário é enviado automaticamente.
 
-## Estado verificado em 20/10/2026
+## Limites iniciais no banco de dados
 
-- Supabase ativo no plano Free; `GEMINI_API_KEY` cadastrado.
-- Migração aplicada após autorização explícita; permissões, RLS, bloqueio por autorização, cotas por minuto/dia e interrupção do serviço conferidos com testes transacionais revertidos.
-- Edge Function `chat-gemini` ativa, versão 3, com `verify_jwt=true`.
-- Requisições sem token, com token inválido e com chave anon pública foram recusadas com 401.
-- Teste real autenticado no dashboard: HTTP 200, resposta "Dois mais dois é igual a quatro." usando `gemini-3.5-flash-lite`.
-- 10 testes do handler aprovados. CI Android e painel web aprovados no commit anterior (as últimas alterações afetam somente backend, seus testes e esta documentação).
-- Nenhuma conta normal foi liberada automaticamente para IA. É necessário cadastrar/autorizar as contas do piloto e instalar o APK da PR. O fluxo em dispositivo Android ainda não foi testado.
-- Nenhum faturamento pago foi ativado e a PR não foi mesclada.
+- 2 consultas por minuto por identidade anônima, 5 por dia.
+- 8 consultas por minuto no projeto inteiro, 18 por dia no projeto inteiro.
+- O dia é calculado no fuso America/Los_Angeles por corresponder à janela diária de quota do Gemini.
+- Reservas são atômicas no PostgreSQL, válidas entre diversas instâncias e contam também consultas que falharem no Gemini.
+- Apenas Edge Functions com credencial de serviço executam a RPC de quota; toda chamada normal requer JWT emitido por Supabase Auth e validado com a sessão real.
 
-## Configuração e ativação
+**Importante:** as contas anônimas podem ser recriadas reinstalando ou limpando o aplicativo. Por isso a cota por identidade não comprova quem é uma pessoa, e o limite global é obrigatório para evitar abuso. Para escala pública, adicionar proteção anti-bot adequada à autenticação anônima (ex.: CAPTCHA), controle de criação de sessões e monitoramento de custos. O uso gratuito do Gemini tem quotas próprias que podem mudar.
 
-1. O segredo `GEMINI_API_KEY` deve estar em Edge Functions > Secrets. O modelo é `gemini-3.5-flash-lite`. O modelo anterior `gemini-2.5-flash-lite` retornou 404 no teste real deste projeto.
-2. Migração aplicada neste projeto: `supabase/migrations/20261020120412_secure_chat_quota.sql`. Em outro ambiente, aplicar somente após autorização para criar as tabelas e permissões. Não altera tabelas de artigos ou dados locais Android.
-3. Criar uma conta normal de acesso à IA no Supabase Auth, com e-mail confirmado. Não usar a conta administrativa do painel no celular.
-4. Autorizar uma conta específica pelo UUID em uma operação administrativa:
+## Preparação do Supabase — ordem obrigatória
 
-```sql
-insert into private.chat_access(user_id, enabled)
-values ('UUID_DA_CONTA_AUTH', true)
-on conflict (user_id) do update set enabled = excluded.enabled;
-```
-
-5. Publicar os arquivos `index.ts` e `handler.ts` de `supabase/functions/chat-gemini`, mantendo `verify_jwt=true`.
-6. Gerar o APK da PR e testar com a conta autorizada. O APK antigo não envia JWT e será recusado.
-
-Não cadastrar automaticamente contas existentes nem habilitar cadastro anônimo. A liberação é individual durante o piloto, em função da cota total pequena. A senha/e-mail de acesso à IA são diferentes do cadastro local.
+1. Aplique a migração `supabase/migrations/20261020192100_anonymous_chat_access.sql` antes de habilitar o provedor anônimo. Ela restringe a edição de artigos/imagens a uma lista de administradores. Existe um administrador confirmado no projeto, incluído na lista na migração.
+2. Confira as regras de acesso (RLS) de `public.articles` e `storage.objects`. Contas anônimas do Supabase têm role `authenticated`, portanto políticas permissivas de usuário autenticado sem verificação de administrador são inseguras.
+3. Vá a Supabase > Authentication > Providers > Anonymous Sign-Ins e habilite o provedor anônimo. Esta configuração é necessária para o app criar sessões sem exigir e-mail. Verifique também as políticas de prevenção de bots.
+4. Confirme o segredo `GEMINI_API_KEY` em Edge Functions > Secrets. Não publicar a chave em APK, repositório, logs ou mensagens.
+5. Publique `supabase/functions/chat-gemini/index.ts` e `handler.ts`, mantendo `verify_jwt=true`. A função só encaminha chamadas válidas ao Gemini após reservar quota na RPC.
+6. Instale a versão Android desta PR. O APK anterior, que pede e-mail, continuará usando o fluxo antigo.
 
 ## Operação
 
-Para suspender novas consultas sem apagar dados:
+Para interromper imediatamente novas chamadas (sem apagar contas):
 
 ```sql
-update private.chat_settings set enabled = false where singleton;
+update private.chat_settings set enabled = false where singleton = true;
 ```
 
-Para revogar apenas uma conta:
+Para autorizar outro administrador de conteúdo, conceda explicitamente o acesso à conta desejada em `private.article_admins` usando seu UUID verificado, não por metadados editáveis por usuárias.
 
-```sql
-update private.chat_access set enabled = false where user_id = 'UUID_DA_CONTA_AUTH';
-```
+As tabelas de quota guardam somente identificadores de conta e contagens, sem mensagens, dados de saúde ou endereços IP. O segredo do Gemini não sai do servidor. O painel administrativo continua exigindo conta de e-mail e senha separada; **somente o segundo login da IA foi removido**.
 
-O operador pode executar uma pergunta fictícia pelo testador do dashboard usando a credencial `service_role` que o próprio dashboard administra. O handler aceita essa credencial secreta para chamadas de servidor; aplica a mesma reserva persistente (ator `server`, também limitado a 5/dia). Ela nunca deve ser copiada para o aplicativo ou para mensagens. Tokens arbitrários com role forjada não são aceitos. Para chaves administrativas legadas rotacionadas, a própria RPC restrita valida a credencial com as permissões PostgREST antes de reservar a cota, sem confiar em roles decodificadas.
+## Verificação necessária
 
-## Verificação
+- Executar os testes Deno: `deno test supabase/functions/chat-gemini/handler_test.ts`.
+- Testar o APK: pergunta pronta offline, consentimento aceito/recusado, criação anônima automática, continuidade após reiniciar o app, expiração/renovação da sessão, bloqueio da sexta pergunta diária, limite global.
+- Conferir no Supabase que uma sessão anônima não consegue criar, editar ou excluir artigos ou imagens, mas a conta administrativa mantém essas operações.
+- Verificar CI de Android e do handler após as últimas alterações.
+- Antes de uso público com dados reais de saúde, revisar LGPD, política de privacidade, revogação do consentimento, termos de tratamento de dados do Gemini e conteúdo clínico.
 
-- `deno check supabase/functions/chat-gemini/index.ts`
-- `deno test supabase/functions/chat-gemini/handler_test.ts`
-- `./gradlew :app:testDebugUnitTest :app:assembleDebug`
-- Testes reais: sem token → 401; token inválido → 401; conta não autorizada/revogada → 403; limite excedido → 429 sem chamar Gemini; conta liberada → resposta válida.
-- No dispositivo: perguntas prontas/offline, consentimento recusado, login IA cancelado, sessão expirada, falha de rede e consulta nova.
-
-O fluxo local/Android e a disponibilidade real da API precisam ser verificados além dos testes simulados. Publicar o backend não instala o APK nem faz merge da PR.
-
-## Privacidade
-
-São enviados ao Gemini a pergunta e até seis mensagens recentes, nunca perfil ou calendário. A IA é educativa; não diagnostica ou prescreve. Serviços e prompts podem falhar. Antes de uso público com dados reais de saúde, revisar política de privacidade, revogação do consentimento, condições de tratamento do plano gratuito, LGPD e conteúdo clínico. O piloto deve usar perguntas fictícias e não sensíveis até essa revisão.
+O modelo é `gemini-3.5-flash-lite`. Consulte o plano e as quotas atuais no Google AI Studio antes de abrir acesso a todas as pessoas.
