@@ -5,7 +5,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 
 /** Nunca chame Gemini diretamente do APK: a chave fica no Supabase. */
@@ -23,16 +22,10 @@ class GeminiChatClient {
             setRequestProperty("Authorization", "Bearer " + accessToken)
         }
         try {
-            val safeHistory = JSONArray()
-            history.takeLast(6).forEach { item ->
-                safeHistory.put(JSONObject()
-                    .put("role", if (item.isUsuario) "user" else "model")
-                    .put("text", item.texto.take(500)))
-            }
+            // Keep the conversation on the device: do not resend older health messages.
             val request = JSONObject()
                 .put("message", question.take(500))
                 .put("consent", true)
-                .put("history", safeHistory)
             connection.outputStream.use { it.write(request.toString().toByteArray(Charsets.UTF_8)) }
             if (connection.responseCode !in 200..299) {
                 val status = connection.responseCode
