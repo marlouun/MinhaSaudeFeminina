@@ -10,6 +10,8 @@ import com.example.minhasaudefeminina.data.remote.GeminiChatClient
 import com.example.minhasaudefeminina.data.remote.ChatAiSession
 import com.example.minhasaudefeminina.data.remote.ChatAiException
 import com.example.minhasaudefeminina.data.repository.ChatRepository
+import com.example.minhasaudefeminina.data.repository.ProfileRepository
+import com.example.minhasaudefeminina.domain.chat.ChatInput
 import com.example.minhasaudefeminina.domain.chat.PreparedChatResponses
 import com.example.minhasaudefeminina.domain.chat.buildChatContext
 import com.example.minhasaudefeminina.model.MensagemChat
@@ -25,12 +27,13 @@ import kotlinx.coroutines.launch
 
 class ChatViewModel(
     private val repository: ChatRepository,
+    private val profiles: ProfileRepository,
     private val userId: String,
     context: Context,
     private val ai: GeminiChatClient = GeminiChatClient()
 ) : ViewModel() {
     private val sessionId = UUID.randomUUID().toString()
-    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v3", Context.MODE_PRIVATE)
+    private val preferences = context.applicationContext.getSharedPreferences("ai_consent_v4", Context.MODE_PRIVATE)
     private val consentKey = "consent_" + userId
     private val _consentGranted = MutableStateFlow(preferences.getBoolean(consentKey, false))
     val consentGranted: StateFlow<Boolean> = _consentGranted.asStateFlow()
@@ -48,15 +51,17 @@ class ChatViewModel(
         viewModelScope.launch { repository.ensureGreeting(userId, sessionId) }
     }
 
-    fun sendMessage(text: String) {
-        val clean = text.trim().take(500)
-        if (clean.isBlank() || _isTyping.value || _pendingAiQuestion.value != null) return
-        val ready = PreparedChatResponses.findAnswer(clean)
-        if (ready == null && !_consentGranted.value) {
-            _pendingAiQuestion.value = clean
+    fun sendMessage(text: String) = sendInput(ChatInput.Typed(text))
+    fun sendPreparedQuestion(id: String) = sendInput(ChatInput.Suggested(id))
+
+    private fun sendInput(input: ChatInput) {
+        if (_isTyping.value || _pendingAiQuestion.value != null) return
+        val route = PreparedChatResponses.route(input) ?: return
+        if (route.preparedAnswer == null && !_consentGranted.value) {
+            _pendingAiQuestion.value = route.question
             return
         }
-        processMessage(clean, ready, useAi = ready == null)
+        processMessage(route.question, route.preparedAnswer, useAi = route.preparedAnswer == null)
     }
 
     fun acceptAiConsent() {
@@ -91,7 +96,7 @@ class ChatViewModel(
                 repository.saveMessage(newMessage(question, true))
                 val answer = if (!useAi) prepared ?: PreparedChatResponses.OFFLINE_FALLBACK
                     else try {
-                        ai.respond(question, context, aiSession.accessToken())
+                        ai.respond(question, context, aiSession.accessToken(), profiles.observeProfile(userId).first().faseVida)
                     } catch (c: CancellationException) {
                         throw c
                     } catch (e: ChatAiException) {
@@ -134,7 +139,7 @@ class ChatViewModel(
     )
 
     companion object {
-        fun factory(repository: ChatRepository, userId: String, context: Context): ViewModelProvider.Factory =
-            viewModelFactory { initializer { ChatViewModel(repository, userId, context) } }
+        fun factory(repository: ChatRepository, profiles: ProfileRepository, userId: String, context: Context): ViewModelProvider.Factory =
+            viewModelFactory { initializer { ChatViewModel(repository, profiles, userId, context) } }
     }
 }
