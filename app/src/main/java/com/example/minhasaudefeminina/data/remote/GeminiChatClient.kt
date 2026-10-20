@@ -2,6 +2,7 @@ package com.example.minhasaudefeminina.data.remote
 
 import com.example.minhasaudefeminina.domain.chat.ChatContextMessage
 import com.example.minhasaudefeminina.domain.chat.sessionFailureMessage
+import com.example.minhasaudefeminina.model.FaseVida
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +12,7 @@ import org.json.JSONArray
 
 /** Nunca chame Gemini diretamente do APK: a chave fica no Supabase. */
 class GeminiChatClient {
-    suspend fun respond(question: String, history: List<ChatContextMessage>, accessToken: String): String = withContext(Dispatchers.IO) {
+    suspend fun respond(question: String, history: List<ChatContextMessage>, accessToken: String, lifeStage: FaseVida): String = withContext(Dispatchers.IO) {
         val url = URL(SupabaseConfig.PROJECT_URL + "/functions/v1/chat-gemini")
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -32,13 +33,14 @@ class GeminiChatClient {
                 .put("message", question.take(500))
                 .put("consent", true)
                 .put("history", context)
+                .put("lifeStage", lifeStage.name)
             connection.outputStream.use { it.write(request.toString().toByteArray(Charsets.UTF_8)) }
             if (connection.responseCode !in 200..299) {
                 val status = connection.responseCode
                 throw ChatAiException(status, when (status) {
                     401 -> "Sua sessão anônima da IA expirou. Tente novamente."
                     403 -> "Não foi possível validar a sessão anônima da IA."
-                    429 -> "O limite de consultas da IA foi atingido. Tente novamente mais tarde."
+                    429 -> "A cota global do aplicativo ou do provedor de IA foi atingida. Tente novamente mais tarde."
                     else -> "A IA está indisponível agora. Tente mais tarde; as respostas prontas continuam disponíveis."
                 })
             }
