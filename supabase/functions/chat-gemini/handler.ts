@@ -1,5 +1,13 @@
 export const MODEL = "gemini-3.5-flash-lite";
 const MAX_BODY_BYTES = 18000;
+const LIFE_STAGES: Record<string, string> = {
+  ADOLESCENCIA: "Adolescência",
+  IDADE_REPRODUTIVA: "Idade reprodutiva",
+  GESTACAO: "Gestação",
+  CLIMATERIO: "Climatério",
+  MENOPAUSA: "Menopausa",
+  SENESCENCIA: "Senescência",
+};
 const SYSTEM = [
 "Você é a assistente educativa do Minha Saúde Feminina. Responda em português do Brasil, com empatia e objetividade.",
 "Não diagnostique, não prescreva medicamentos ou doses e não substitua profissionais de saúde.",
@@ -85,6 +93,13 @@ export function createHandler(deps: Dependencies) {
       catch (error) { return json(error instanceof Error && error.message === "large" ? 413 : 400, { error: "Mensagem inválida ou muito longa." }); }
       if (!input || input.consent !== true || typeof input.message !== "string" || !input.message.trim() || input.message.length > 500) return json(400, { error: "Mensagem inválida ou consentimento ausente." });
       if (input.history !== undefined && (!Array.isArray(input.history) || input.history.length > 6)) return json(400, { error: "Histórico inválido." });
+      if (input.lifeStage !== undefined && (typeof input.lifeStage !== "string" || !Object.hasOwn(LIFE_STAGES, input.lifeStage))) {
+        return json(400, { error: "Fase da vida inválida." });
+      }
+      const lifeStage = input.lifeStage === undefined ? null : LIFE_STAGES[input.lifeStage];
+      const educationalContext = lifeStage
+        ? "Fase da vida selecionada para contextualização educativa: " + lifeStage + ". Adapte a explicação e os exemplos a essa fase, sem presumir idade exata, diagnóstico ou condições não informadas. A seleção não é prova de idade ou de condição clínica. Mantenha orientação geral, nunca diagnóstico ou prescrição."
+        : "Nenhuma fase da vida foi informada; não presuma uma fase.";
       const history = input.history ?? [];
       if (history.some((m: any) => !m || !["user", "model"].includes(m.role) || typeof m.text !== "string" || m.text.length > 500)) return json(400, { error: "Histórico inválido." });
 
@@ -101,11 +116,11 @@ export function createHandler(deps: Dependencies) {
       const quota = await reservation.json();
       if (quota.status === "forbidden") return json(403, { error: "Sessão da IA inválida ou revogada." });
       if (quota.status === "disabled") return json(503, { error: "IA temporariamente desativada." });
-      if (quota.status !== "ok") return json(429, { error: "Limite de consultas atingido. Tente novamente mais tarde." });
+      if (quota.status !== "ok") return json(429, { error: "Limite global de consultas do aplicativo atingido. Tente novamente mais tarde." });
 
       const result = await deps.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent", {
         method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM + "\n" + educationalContext }] }, contents: [
           ...history.map((m: any) => ({ role: m.role, parts: [{ text: m.text }] })),
           { role: "user", parts: [{ text: input.message.trim() }] },
         ], generationConfig: { temperature: 0.35, maxOutputTokens: 450 } }),
