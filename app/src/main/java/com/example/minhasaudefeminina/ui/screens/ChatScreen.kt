@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -63,13 +61,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isTyping by viewModel.isTyping.collectAsStateWithLifecycle()
     val pendingAiQuestion by viewModel.pendingAiQuestion.collectAsStateWithLifecycle()
+    val consentGranted by viewModel.consentGranted.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var text by rememberSaveable { mutableStateOf("") }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
 
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.clearAiSession() }
-    }
 
     val suggestions = listOf(
         "É normal ter corrimento?",
@@ -88,7 +84,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(LightPinkBackground)
-            .imePadding()
     ) {
         Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 2.dp) {
             Row(
@@ -98,6 +93,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Dúvidas e orientações", fontSize = 18.sp, color = RosaPrimario, fontWeight = FontWeight.Bold)
                     Text("Informação geral, não diagnóstico", fontSize = 11.sp, color = Color.Gray)
+                }
+                if (consentGranted) {
+                    TextButton(onClick = viewModel::revokeAiConsent) { Text("Desativar IA") }
                 }
                 IconButton(onClick = { showClearDialog = true }) {
                     Icon(Icons.Default.DeleteSweep, "Limpar conversa", tint = RosaSecundario)
@@ -154,7 +152,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
                     maxLines = 3,
-                    supportingText = { if (text.length >= 450) Text("${text.length}/500") },
+                    supportingText = if (text.length >= 450) ({ Text("${text.length}/500") }) else null,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = RosaSecundario,
                         unfocusedBorderColor = RosaClaro
@@ -186,7 +184,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             title = { Text("Consultar assistente com IA?") },
             text = {
                 Text(
-                    "Esta dúvida não possui resposta pronta. Se você autorizar, o texto desta mensagem e até 6 mensagens recentes serão enviados ao Google Gemini por um serviço intermediário. Não inclua nome, CPF, endereço ou outros dados que identifiquem você. O serviço externo poderá processar informações sensíveis de saúde conforme suas próprias regras de privacidade. A IA pode errar, não oferece diagnóstico nem substitui atendimento profissional. Você pode continuar usando as respostas prontas sem autorizar."
+                    "Versão de testes para maiores de 18 anos. Use apenas perguntas fictícias e gerais. Ao autorizar, esta e futuras perguntas sem resposta pronta serão enviadas ao Google Gemini, sem o histórico local, perfil ou calendário. No plano gratuito, o Google pode usar mensagens e respostas para melhorar seus produtos, inclusive com revisão humana. Não envie informações pessoais, confidenciais, sintomas ou dados reais de saúde. A IA pode errar e não oferece diagnóstico ou prescrição. As respostas prontas continuam disponíveis sem consentimento. Você pode revogar a autorização em Desativar IA."
                 )
             },
             confirmButton = {
