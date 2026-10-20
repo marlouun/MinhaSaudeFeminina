@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -83,12 +82,10 @@ class ChatViewModel(
         viewModelScope.launch {
             _isTyping.value = true
             try {
-                // Historical context is built before persisting the new message, avoiding duplication.
-                val history = if (useAi) messages.first().takeLast(6) else emptyList()
                 repository.saveMessage(newMessage(question, true))
                 val answer = if (!useAi) prepared ?: PreparedChatResponses.OFFLINE_FALLBACK
                     else try {
-                        ai.respond(question, history, aiSession.accessToken())
+                        ai.respond(question, emptyList(), aiSession.accessToken())
                     } catch (c: CancellationException) {
                         throw c
                     } catch (e: ChatAiException) {
