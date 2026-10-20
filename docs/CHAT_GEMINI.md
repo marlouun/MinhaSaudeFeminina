@@ -1,20 +1,62 @@
 # Chat híbrido Gemini
 
-O app responde localmente às perguntas já previstas e só consulta o Gemini quando não há resposta pronta e a usuária autoriza. A chave do Google deve permanecer exclusivamente no backend Supabase Edge Function.
+As perguntas previstas continuam sendo respondidas offline. Perguntas novas só são enviadas após consentimento e login separado no acesso à IA. O login e os dados locais do aplicativo continuam locais.
 
-## Para ativar
-1. Reativar o projeto Supabase se estiver pausado.
-2. Criar uma chave Gemini no Google AI Studio, conferindo a elegibilidade ao plano gratuito.
-3. Cadastrar GEMINI_API_KEY em Supabase > Edge Functions > Secrets. Nunca colocar essa chave no APK, no GitHub ou em uma mensagem.
-4. Implantar supabase/functions/chat-gemini/index.ts como a função chat-gemini (verify_jwt=false porque as contas do app ainda são locais).
-5. Fazer build do Android e testar perguntas locais, perguntas novas, consentimento e ausência de conexão.
+## Proteção implementada
 
-## PRIVACIDADE E SEGURANÇA
-O login Android é exclusivamente local, portanto NÃO existe autenticação confiável da usuária no backend. A publishable key é pública. O limite por IP em memória é apenas uma proteção provisória, não uma quota confiável entre instâncias. NÃO lançar publicamente sem autenticação no servidor, cotas persistentes, monitoramento de custos e prevenção de abuso.
+- `chat-gemini` exige `verify_jwt=true` e valida o token com Supabase Auth (`/auth/v1/user`). Chaves públicas não são identidade.
+- Contas devem ter e-mail confirmado, não podem ser anônimas e precisam estar habilitadas em `private.chat_access`.
+- Cada chamada também confere a existência/validade da sessão em `auth.sessions` e o bloqueio da conta. A autorização não vem de `user_metadata`.
+- Reservas atômicas no Postgres impedem ultrapassar cotas com chamadas simultâneas ou em várias instâncias. Máximos: 2/minuto e 5/dia por conta; 8/minuto e 18/dia no projeto inteiro. O dia acompanha `America/Los_Angeles`, usado pela cota diária Gemini.
+- Tentativas com falha no provedor também contam. Sem banco/segredo/autorização, o serviço não chama Gemini.
+- O corpo real é limitado a 18 KB; pergunta e mensagens têm até 500 caracteres e histórico até 6 mensagens.
+- A senha não é salva. O token fica somente na memória e é descartado ao sair da tela do chat ou ao expirar. Não há chave Gemini, service role ou refresh token no APK.
+- As tabelas de controle guardam apenas UUID de conta e contadores, sem perguntas, respostas ou IPs. Contadores antigos são removidos após dois dias.
 
-Os dados enviados à IA são a pergunta e até seis mensagens recentes, nunca dados do perfil/calendário. O consentimento é salvo por conta local no aparelho e a pergunta não é enviada em caso de recusa. Para produção, implementar revogação do consentimento, política de privacidade e análise de LGPD, especialmente para dados sensíveis de saúde, além de revisão por profissionais.
+## Configuração e ativação
 
-A IA é exclusivamente educativa: não diagnostica ou prescreve. Os prompts de segurança podem falhar. Serviços sem chave ou indisponíveis respondem com orientação genérica local.
+1. O segredo `GEMINI_API_KEY` deve estar em Edge Functions > Secrets. O modelo permanece `gemini-2.5-flash-lite`.
+2. Aplicar `supabase/migrations/20261020120412_secure_chat_quota.sql` somente após autorização para criar as tabelas e permissões. Não altera tabelas de artigos ou dados locais Android.
+3. Criar uma conta normal de acesso à IA no Supabase Auth, com e-mail confirmado. Não usar a conta administrativa do painel no celular.
+4. Autorizar uma conta específica pelo UUID em uma operação administrativa:
+
+```sql
+insert into private.chat_access(user_id, enabled)
+values ('UUID_DA_CONTA_AUTH', true)
+on conflict (user_id) do update set enabled = excluded.enabled;
+```
+
+5. Publicar os arquivos `index.ts` e `handler.ts` de `supabase/functions/chat-gemini`, mantendo `verify_jwt=true`.
+6. Gerar o APK da PR e testar com a conta autorizada. O APK antigo não envia JWT e será recusado.
+
+Não cadastrar automaticamente contas existentes nem habilitar cadastro anônimo. A liberação é individual durante o piloto, em função da cota total pequena. A senha/e-mail de acesso à IA são diferentes do cadastro local.
+
+## Operação
+
+Para suspender novas consultas sem apagar dados:
+
+```sql
+update private.chat_settings set enabled = false where singleton;
+```
+
+Para revogar apenas uma conta:
+
+```sql
+update private.chat_access set enabled = false where user_id = 'UUID_DA_CONTA_AUTH';
+```
+
+O operador pode executar uma pergunta fictícia pelo testador do dashboard usando a credencial `service_role` que o próprio dashboard administra. O handler aceita essa credencial secreta para chamadas de servidor; aplica a mesma reserva persistente (ator `server`, também limitado a 5/dia). Ela nunca deve ser copiada para o aplicativo ou para mensagens. Tokens arbitrários com role forjada não são aceitos.
 
 ## Verificação
-Rodar ./gradlew testDebugUnitTest e ./gradlew assembleDebug; testar manualmente em dispositivo Android.
+
+- `deno check supabase/functions/chat-gemini/index.ts`
+- `deno test supabase/functions/chat-gemini/handler_test.ts`
+- `./gradlew :app:testDebugUnitTest :app:assembleDebug`
+- Testes reais: sem token → 401; token inválido → 401; conta não autorizada/revogada → 403; limite excedido → 429 sem chamar Gemini; conta liberada → resposta válida.
+- No dispositivo: perguntas prontas/offline, consentimento recusado, login IA cancelado, sessão expirada, falha de rede e consulta nova.
+
+O fluxo local/Android e a disponibilidade real da API precisam ser verificados além dos testes simulados. Publicar o backend não instala o APK nem faz merge da PR.
+
+## Privacidade
+
+São enviados ao Gemini a pergunta e até seis mensagens recentes, nunca perfil ou calendário. A IA é educativa; não diagnostica ou prescreve. Serviços e prompts podem falhar. Antes de uso público com dados reais de saúde, revisar política de privacidade, revogação do consentimento, condições de tratamento do plano gratuito, LGPD e conteúdo clínico. O piloto deve usar perguntas fictícias e não sensíveis até essa revisão.

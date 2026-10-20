@@ -7,6 +7,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.minhasaudefeminina.data.remote.GeminiChatClient
+import com.example.minhasaudefeminina.data.remote.ChatAiSession
+import com.example.minhasaudefeminina.data.remote.ChatAiException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.minhasaudefeminina.data.repository.ChatRepository
 import com.example.minhasaudefeminina.domain.chat.PreparedChatResponses
 import com.example.minhasaudefeminina.model.MensagemChat
@@ -33,6 +37,39 @@ class ChatViewModel(
     val consentGranted: StateFlow<Boolean> = _consentGranted.asStateFlow()
     private val _pendingAiQuestion = MutableStateFlow<String?>(null)
     val pendingAiQuestion: StateFlow<String?> = _pendingAiQuestion.asStateFlow()
+    private val aiSession = ChatAiSession()
+    private val _aiLoginRequired = MutableStateFlow(false)
+    val aiLoginRequired = _aiLoginRequired.asStateFlow()
+    private val _aiLoginLoading = MutableStateFlow(false)
+    val aiLoginLoading = _aiLoginLoading.asStateFlow()
+    private val _aiLoginError = MutableStateFlow<String?>(null)
+    val aiLoginError = _aiLoginError.asStateFlow()
+
+    fun signInToAi(email: String, password: String) {
+        if (_aiLoginLoading.value) return
+        viewModelScope.launch {
+            _aiLoginLoading.value = true
+            _aiLoginError.value = null
+            try {
+                withContext(Dispatchers.IO) { aiSession.signIn(email, password) }
+                _aiLoginRequired.value = false
+                val pending = _pendingAiQuestion.value
+                _pendingAiQuestion.value = null
+                if (pending != null) processMessage(pending, null, useAi = true)
+            } catch (c: CancellationException) { throw c }
+            catch (_: Exception) {
+                _aiLoginError.value = "Não foi possível entrar. Use uma conta confirmada de acesso à IA e confira sua conexão."
+            } finally { _aiLoginLoading.value = false }
+        }
+    }
+
+    fun clearAiSession() { aiSession.clear() }
+
+    fun cancelAiLogin() {
+        if (_aiLoginLoading.value) return
+        _aiLoginRequired.value = false
+        declineAiConsent()
+    }
 
     val messages: StateFlow<List<MensagemChat>> = repository.observeMessages(userId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -52,14 +89,23 @@ class ChatViewModel(
             _pendingAiQuestion.value = clean
             return
         }
+        if (ready == null && aiSession.token() == null) {
+            _pendingAiQuestion.value = clean
+            _aiLoginRequired.value = true
+            return
+        }
         processMessage(clean, ready, useAi = ready == null)
     }
 
     fun acceptAiConsent() {
         val pending = _pendingAiQuestion.value ?: return
-        _pendingAiQuestion.value = null
         preferences.edit().putBoolean(consentKey, true).apply()
         _consentGranted.value = true
+        if (aiSession.token() == null) {
+            _aiLoginRequired.value = true
+            return
+        }
+        _pendingAiQuestion.value = null
         processMessage(pending, null, useAi = true)
     }
 
@@ -78,9 +124,12 @@ class ChatViewModel(
                 repository.saveMessage(newMessage(question, true))
                 val answer = if (!useAi) prepared ?: PreparedChatResponses.OFFLINE_FALLBACK
                     else try {
-                        ai.respond(question, history)
+                        ai.respond(question, history, aiSession.token() ?: throw ChatAiException(401, "Entre na conta de acesso à IA."))
                     } catch (c: CancellationException) {
                         throw c
+                    } catch (e: ChatAiException) {
+                        if (e.status == 401) aiSession.clear()
+                        e.message ?: PreparedChatResponses.OFFLINE_FALLBACK
                     } catch (_: Exception) {
                         PreparedChatResponses.OFFLINE_FALLBACK
                     }
@@ -98,6 +147,11 @@ class ChatViewModel(
             repository.clearHistory(userId)
             repository.ensureGreeting(userId, sessionId)
         }
+    }
+
+    override fun onCleared() {
+        aiSession.clear()
+        super.onCleared()
     }
 
     private fun newMessage(text: String, isUser: Boolean) = MensagemChat(
