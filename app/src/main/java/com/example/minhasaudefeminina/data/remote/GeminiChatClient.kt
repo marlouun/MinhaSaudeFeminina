@@ -1,16 +1,17 @@
 package com.example.minhasaudefeminina.data.remote
 
-import com.example.minhasaudefeminina.model.MensagemChat
+import com.example.minhasaudefeminina.domain.chat.ChatContextMessage
 import com.example.minhasaudefeminina.domain.chat.sessionFailureMessage
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.json.JSONArray
 
 /** Nunca chame Gemini diretamente do APK: a chave fica no Supabase. */
 class GeminiChatClient {
-    suspend fun respond(question: String, history: List<MensagemChat>, accessToken: String): String = withContext(Dispatchers.IO) {
+    suspend fun respond(question: String, history: List<ChatContextMessage>, accessToken: String): String = withContext(Dispatchers.IO) {
         val url = URL(SupabaseConfig.PROJECT_URL + "/functions/v1/chat-gemini")
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -23,10 +24,14 @@ class GeminiChatClient {
             setRequestProperty("Authorization", "Bearer " + accessToken)
         }
         try {
-            // Keep the conversation on the device: do not resend older health messages.
+            val context = JSONArray()
+            history.takeLast(6).forEach { message ->
+                context.put(JSONObject().put("role", message.role).put("text", message.text.take(500)))
+            }
             val request = JSONObject()
                 .put("message", question.take(500))
                 .put("consent", true)
+                .put("history", context)
             connection.outputStream.use { it.write(request.toString().toByteArray(Charsets.UTF_8)) }
             if (connection.responseCode !in 200..299) {
                 val status = connection.responseCode
