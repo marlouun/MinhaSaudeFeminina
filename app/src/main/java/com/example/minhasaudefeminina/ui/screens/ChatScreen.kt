@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.minhasaudefeminina.model.MensagemChat
+import com.example.minhasaudefeminina.domain.chat.PreparedChatResponses
 import com.example.minhasaudefeminina.ui.theme.LightPinkBackground
 import com.example.minhasaudefeminina.ui.theme.RosaClaro
 import com.example.minhasaudefeminina.ui.theme.RosaPrimario
@@ -67,14 +68,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
 
 
-    val suggestions = listOf(
-        "É normal ter corrimento?",
-        "O que fazer com cólica?",
-        "Minha menstruação atrasou",
-        "Percebi um caroço na mama",
-        "Quais métodos contraceptivos existem?",
-        "Sinto ardor ao urinar"
-    )
+    val suggestions = PreparedChatResponses.suggestions
 
     LaunchedEffect(messages.size, isTyping) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -129,8 +123,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             items(suggestions) { suggestion ->
                 SuggestionChip(
-                    onClick = { viewModel.sendMessage(suggestion) },
-                    label = { Text(suggestion, fontSize = 12.sp) },
+                    onClick = { viewModel.sendPreparedQuestion(suggestion.id) },
+                    label = { Text(suggestion.question, fontSize = 12.sp) },
                     colors = SuggestionChipDefaults.suggestionChipColors(
                         containerColor = RosaClaro.copy(alpha = 0.35f),
                         labelColor = RosaPrimario
@@ -184,7 +178,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             title = { Text("Consultar assistente com IA?") },
             text = {
                 Text(
-                    "Versão de testes para maiores de 18 anos. Use apenas perguntas fictícias e gerais. Ao autorizar, esta e futuras perguntas sem resposta pronta serão enviadas ao Google Gemini junto de até 6 mensagens recentes desta conversa, incluindo suas perguntas e as respostas prontas ou da IA, para manter o contexto. Perfil, calendário e sintomas registrados não serão enviados. No plano gratuito, o Google pode usar mensagens e respostas para melhorar seus produtos, inclusive com revisão humana. Não envie informações pessoais, confidenciais, sintomas ou dados reais de saúde. A IA pode errar e não oferece diagnóstico ou prescrição. As respostas prontas continuam disponíveis sem consentimento. Você pode revogar a autorização em Desativar IA."
+                    "Versão de testes para maiores de 18 anos. Use apenas perguntas fictícias e gerais. Ao autorizar, esta e futuras perguntas digitadas serão enviadas ao Google Gemini junto de até 6 mensagens recentes desta conversa, incluindo suas perguntas e as respostas prontas ou da IA, para manter o contexto. Também será enviada a fase da vida selecionada no perfil, para adaptar as informações educativas. Nome, e-mail, exames, calendário e sintomas registrados não serão enviados. No plano gratuito, o Google pode usar mensagens e respostas para melhorar seus produtos, inclusive com revisão humana. Não envie informações pessoais, confidenciais, sintomas ou dados reais de saúde. A IA pode errar e não oferece diagnóstico ou prescrição. As respostas prontas continuam disponíveis sem consentimento. Você pode revogar a autorização em Desativar IA."
                 )
             },
             confirmButton = {
