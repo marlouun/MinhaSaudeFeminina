@@ -79,3 +79,7 @@ Antes de uso público: selecionar condições/provedor adequados a dados sensív
 ## Espaçamento do teclado no chat
 
 O recuo do teclado é tratado uma única vez no Scaffold pai, que consome seus insets antes de medir a conversa. A navegação inferior fica oculta enquanto o teclado está aberto no chat. O campo não reserva espaço para um contador vazio. `adjustResize` foi explicitado. A correção exige conferência no mesmo aparelho da captura; não há teste visual em dispositivo neste ambiente.
+
+## Diagnóstico do teste em celular — versão 2.1-chat-anon (código 3)
+
+Foi relatado retorno local de falha às 19h55. Nos registros consultados não apareceu uma nova sessão anônima ou chamada à função correspondente. Isso não confirma a causa no aparelho. O APK passa a distinguir DNS, timeout, TLS, rede, armazenamento seguro e falha de cadastro/renovação por códigos sem expor tokens, perguntas ou mensagens internas de exceção. O tratamento não desativa validação TLS nem autenticação e não registra dados pessoais. A causa final depende de repetir o teste neste APK e informar o código exibido; o teste real anterior de backend continua aprovado.
