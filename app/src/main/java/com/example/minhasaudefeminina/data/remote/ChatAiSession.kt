@@ -1,6 +1,7 @@
 package com.example.minhasaudefeminina.data.remote
 
 import com.example.minhasaudefeminina.domain.chat.AnonymousSessionLifecycle
+import com.example.minhasaudefeminina.domain.chat.sessionFailureMessage
 import com.example.minhasaudefeminina.domain.chat.AnonymousTokens
 import com.example.minhasaudefeminina.domain.chat.SessionRefreshRejected
 import android.content.Context
@@ -49,7 +50,16 @@ class ChatAiSession(context: Context, localUserId: String) {
         remove = { preferences.edit().remove(preferenceKey).commit(); Unit },
     )
 
-    suspend fun accessToken(): String = withContext(Dispatchers.IO) { lifecycle.accessToken() }
+    suspend fun accessToken(): String = withContext(Dispatchers.IO) {
+        try { lifecycle.accessToken() }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (failure: ChatAiException) { throw failure }
+        catch (failure: AuthHttpException) {
+            throw ChatAiException(failure.status,
+                "Não foi possível renovar a sessão da IA (IA-AUTH-${failure.status}). Tente novamente; as respostas prontas continuam disponíveis.")
+        }
+        catch (failure: Exception) { throw ChatAiException(0, sessionFailureMessage(failure)) }
+    }
     fun invalidateAccessToken() = lifecycle.invalidateAccessToken()
     fun clearVolatile() = lifecycle.clearVolatile()
 
@@ -97,11 +107,11 @@ class ChatAiSession(context: Context, localUserId: String) {
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             if (conn.responseCode !in 200..299) {
                 if (path == "/auth/v1/signup" && conn.responseCode == 429) {
-                    throw IllegalStateException("Limite de criação de sessões atingido. Tente novamente mais tarde; as respostas prontas continuam disponíveis.")
+                    throw ChatAiException(429, "Limite de criação de sessões atingido (IA-CADASTRO-429). Aguarde e tente novamente; as respostas prontas continuam disponíveis.")
                 }
                 if (path == "/auth/v1/signup" && conn.responseCode in 400..499) {
-                    throw IllegalStateException(
-                        "O acesso anônimo ainda não está habilitado no Supabase. As respostas prontas continuam disponíveis."
+                    throw ChatAiException(conn.responseCode,
+                        "Não foi possível iniciar a sessão da IA (IA-CADASTRO-${conn.responseCode}). As respostas prontas continuam disponíveis."
                     )
                 }
                 throw AuthHttpException(conn.responseCode)
