@@ -100,3 +100,7 @@ Foi relatado retorno local de falha às 19h55. Nos registros consultados não ap
 - A fase da vida é lida novamente do perfil local a cada consulta e enviada no campo `lifeStage`. O backend aceita apenas os seis valores definidos no app e contextualiza suas instruções; não aceita texto arbitrário como instrução de sistema. A fase não comprova idade exata, gravidez ou diagnóstico, e não substitui avaliação profissional.
 - O consentimento foi atualizado (`ai_consent_v4`) e precisa ser aceito novamente para o envio da fase selecionada. O restante do perfil não é enviado.
 - Testes de conteúdo/fases usam somente dados fictícios. Permanecem as restrições de uso público, dados sensíveis e público adulto do provedor gratuito; a seleção de Adolescência como tema educativo não libera uso por menores.
+
+## Contraste da barra de notificações — 2.4-barra-status
+
+A barra de status usa explicitamente ícones escuros sobre o fundo claro/transparente do aplicativo, em vez de acompanhar o modo escuro do telefone. A opção XML também mantém o contraste na abertura da Activity. A API utilizada já está presente no AndroidX Activity 1.8.0 do projeto; não houve atualização de dependências. Conferência visual no aparelho permanece necessária, pois não há dispositivo/emulador conectado.
