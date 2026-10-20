@@ -1,26 +1,26 @@
 # Chat híbrido Gemini sem segundo login
 
-O app mantém respostas prontas offline e só envia perguntas abertas após a autorização da usuária. O acesso ao Gemini ocorre automaticamente com uma identidade anônima do Supabase Auth, **sem exigir e-mail ou senha de acesso à IA**. As contas normais do Android continuam locais.
+O app oferece respostas prontas offline apenas quando um botão de sugestão é selecionado. Todo texto digitado é encaminhado à IA após autorização da usuária, sem correspondência por palavras-chave. O acesso ao Gemini ocorre automaticamente com uma identidade anônima do Supabase Auth, **sem exigir e-mail ou senha de acesso à IA**. As contas normais do Android continuam locais.
 
 ## Fluxo
 
-- Primeira pergunta não prevista: diálogo de consentimento antes do envio de dados para o Google Gemini.
+- Primeira pergunta digitada: diálogo de consentimento antes do envio de dados para o Google Gemini.
 - Depois do consentimento, o app cria automaticamente uma sessão anônima no Supabase Auth.
 - A identidade e os tokens de atualização são preservados criptografados no Android Keystore/SharedPreferences, separados por conta local.
-- Em perguntas futuras, a sessão é reutilizada ou renovada, preservando a cota diária daquele identificador.
-- As respostas prontas continuam ilimitadas e funcionam offline.
+- Em perguntas futuras, a sessão é reutilizada ou renovada, preservando a identidade anônima.
+- As respostas prontas dos botões continuam ilimitadas e funcionam offline. Digitar até o mesmo texto de um botão usa a IA, evitando correspondências indevidas por palavras isoladas.
 - Se Gemini, o servidor ou as cotas falharem, o chat mantém o histórico e exibe orientação educativa ou um erro amigável.
-- A pergunta atual e até 6 mensagens recentes da mesma conta local são enviadas à IA após consentimento explícito, incluindo perguntas e respostas prontas/da IA para manter contexto. Cada mensagem de contexto tem no máximo 500 caracteres. O histórico completo continua no aparelho; perfil, calendário e sintomas registrados não são enviados automaticamente. A autorização pode ser revogada em **Desativar IA**. O consentimento anterior foi invalidado para explicar o novo compartilhamento.
+- A pergunta atual e até 6 mensagens recentes da mesma conta local são enviadas à IA após consentimento explícito, incluindo perguntas e respostas prontas/da IA para manter contexto. Cada mensagem de contexto tem no máximo 500 caracteres. O histórico completo continua no aparelho; somente a fase da vida selecionada no perfil acompanha a pergunta como contexto educativo. Nome, e-mail, exames, calendário e sintomas registrados não são enviados. A autorização pode ser revogada em **Desativar IA**. O consentimento anterior foi invalidado para explicar o novo compartilhamento.
 
 ## Limites iniciais no banco de dados
 
-- 2 consultas por minuto por identidade anônima, 5 por dia.
+- **Sem teto por identidade anônima durante a fase de testes** (removidos 2/minuto e 5/dia).
 - 8 consultas por minuto no projeto inteiro, 18 por dia no projeto inteiro.
 - O dia é calculado no fuso America/Los_Angeles por corresponder à janela diária de quota do Gemini.
 - Reservas são atômicas no PostgreSQL, válidas entre diversas instâncias e contam também consultas que falharem no Gemini.
 - Apenas Edge Functions com credencial de serviço executam a RPC de quota; toda chamada normal requer JWT emitido por Supabase Auth e validado com a sessão real.
 
-**Importante:** as contas anônimas podem ser recriadas reinstalando ou limpando o aplicativo. Por isso a cota por identidade não comprova quem é uma pessoa, e o limite global é obrigatório para evitar abuso. Para escala pública, adicionar proteção anti-bot adequada à autenticação anônima (ex.: CAPTCHA), controle de criação de sessões e monitoramento de custos. O uso gratuito do Gemini tem quotas próprias que podem mudar.
+**Importante:** as contas anônimas podem ser recriadas reinstalando ou limpando o aplicativo. Não há teto por identidade na fase de testes; o limite global é obrigatório para evitar abuso. Para escala pública, adicionar proteção anti-bot adequada à autenticação anônima (ex.: CAPTCHA), controle de criação de sessões e monitoramento de custos. O uso gratuito do Gemini tem quotas próprias que podem mudar.
 
 ## Preparação do Supabase — ordem obrigatória
 
@@ -92,3 +92,11 @@ Foi relatado retorno local de falha às 19h55. Nos registros consultados não ap
 - O aviso explica o envio do contexto; quem já autorizou verá novamente a solicitação (`ai_consent_v3`). Recusar continua impedindo envio e respostas prontas continuam offline e ilimitadas.
 - Backend v4 já aceita esse contrato; não há mudança de segredo, autenticação, quotas ou banco. Foram adicionados testes Android da montagem do contexto e teste Deno da entrega em ordem ao provedor.
 - Esta mudança não remove a restrição do Gemini gratuito a dados pessoais/sensíveis: continue usando apenas perguntas fictícias ou gerais, sem dados reais de saúde.
+
+## Ajustes para a fase de testes — 2.3-chat-fases
+
+- Removidos os limites individuais de chamadas na RPC, mantendo reserva atômica, autenticação, sessão válida, suspensão central e teto global de **8/minuto e 18/dia**. Contadores individuais servem apenas a contagem operacional, sem bloquear por usuária.
+- Perguntas digitadas nunca selecionam resposta pronta, nem mesmo por texto idêntico ao botão. O catálogo dos seis botões possui IDs explícitos. Indisponibilidade/rejeição de consentimento gera orientação local, não uma resposta temática escolhida por palavras-chave.
+- A fase da vida é lida novamente do perfil local a cada consulta e enviada no campo `lifeStage`. O backend aceita apenas os seis valores definidos no app e contextualiza suas instruções; não aceita texto arbitrário como instrução de sistema. A fase não comprova idade exata, gravidez ou diagnóstico, e não substitui avaliação profissional.
+- O consentimento foi atualizado (`ai_consent_v4`) e precisa ser aceito novamente para o envio da fase selecionada. O restante do perfil não é enviado.
+- Testes de conteúdo/fases usam somente dados fictícios. Permanecem as restrições de uso público, dados sensíveis e público adulto do provedor gratuito; a seleção de Adolescência como tema educativo não libera uso por menores.
