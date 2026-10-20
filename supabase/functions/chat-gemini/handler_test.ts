@@ -90,3 +90,18 @@ Deno.test("rotated server credential must pass the service-only RPC", async () =
   assert(calls.length === 3);
   assert((calls[1].init!.headers as Record<string, string>).Authorization === "Bearer " + token);
 });
+
+Deno.test("conversation context reaches Gemini in order before the follow-up", async () => {
+  const { handler, calls } = setup({ anonymous: true });
+  const history = [
+    { role: "user", text: "Vamos falar do número 14." },
+    { role: "model", text: "14 é um número par." },
+  ];
+  assert((await handler(request({ message: "Qual é a metade desse número?", consent: true, history }))).status === 200);
+  const payload = JSON.parse(calls[2].init!.body as string);
+  assert(payload.contents.length === 3);
+  assert(payload.contents[0].role === "user" && payload.contents[0].parts[0].text === history[0].text);
+  assert(payload.contents[1].role === "model" && payload.contents[1].parts[0].text === history[1].text);
+  assert(payload.contents[2].parts[0].text === "Qual é a metade desse número?");
+  assert(!JSON.stringify(calls[1]).includes("número"));
+});
