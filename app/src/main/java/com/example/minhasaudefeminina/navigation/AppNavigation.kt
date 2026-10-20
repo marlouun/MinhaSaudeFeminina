@@ -2,6 +2,10 @@ package com.example.minhasaudefeminina.navigation
 
 import android.net.Uri
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,6 +103,7 @@ fun AppNavigation(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showMainChrome = rootDestinations.any { it.route == currentRoute }
+    val chatKeyboardVisible = currentRoute == Routes.CHAT && WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     val symptomViewModel: SintomasViewModel = viewModel(
         key = "symptoms-${user.id}",
@@ -126,8 +132,10 @@ fun AppNavigation(
     }
 
     Scaffold(
+        // Handle the keyboard once at the parent, before measuring chat content.
+        modifier = if (currentRoute == Routes.CHAT) Modifier.imePadding() else Modifier,
         bottomBar = {
-            if (showMainChrome) {
+            if (showMainChrome && !chatKeyboardVisible) {
                 MainBottomBar(
                     currentRoute = currentRoute,
                     onSelect = ::navigateRoot,
@@ -139,7 +147,7 @@ fun AppNavigation(
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
         ) {
             composable(Routes.HOME) {
                 HomeScreen(
