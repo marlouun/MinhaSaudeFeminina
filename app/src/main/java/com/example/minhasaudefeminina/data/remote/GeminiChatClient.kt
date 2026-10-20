@@ -37,8 +37,8 @@ class GeminiChatClient {
             if (connection.responseCode !in 200..299) {
                 val status = connection.responseCode
                 throw ChatAiException(status, when (status) {
-                    401 -> "Sua sessão da IA expirou. Entre novamente."
-                    403 -> "Esta conta ainda não tem acesso à IA. Solicite a liberação à equipe do aplicativo."
+                    401 -> "Sua sessão anônima da IA expirou. Tente novamente."
+                    403 -> "Não foi possível validar a sessão anônima da IA."
                     429 -> "O limite de consultas da IA foi atingido. Tente novamente mais tarde."
                     else -> "A IA está indisponível agora. Tente mais tarde; as respostas prontas continuam disponíveis."
                 })
