@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -102,9 +103,10 @@ fun AppNavigation(
         key = "symptoms-${user.id}",
         factory = SintomasViewModel.factory(container.symptomRepository, user.id)
     )
+    val chatContext = LocalContext.current
     val chatViewModel: ChatViewModel = viewModel(
         key = "chat-${user.id}",
-        factory = ChatViewModel.factory(container.chatRepository, user.id)
+        factory = ChatViewModel.factory(container.chatRepository, user.id, chatContext)
     )
     val profileViewModel: PerfilViewModel = viewModel(
         key = "profile-${user.id}",
