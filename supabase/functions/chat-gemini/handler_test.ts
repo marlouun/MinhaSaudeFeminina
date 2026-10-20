@@ -25,14 +25,20 @@ Deno.test("public key alone never calls Auth, SQL or Gemini", async () => {
   assert((await handler(request(undefined, null))).status === 401);
   assert(calls.length === 0);
 });
-Deno.test("invalid token and anonymous user cannot spend quota", async () => {
-  for (const option of [{ authStatus: 401 }, { anonymous: true }]) {
-    const { handler, calls } = setup(option);
-    assert([401, 403].includes((await handler(request())).status));
-    assert(calls.length === (option.authStatus === 401 ? 2 : 1));
-  }
+Deno.test("invalid token never reaches Gemini", async () => {
+  const { handler, calls } = setup({ authStatus: 401 });
+  assert((await handler(request())).status === 401);
+  assert(calls.length === 2);
 });
-Deno.test("unapproved or revoked session is rejected before Gemini", async () => {
+Deno.test("anonymous authenticated user can spend quota without email", async () => {
+  const { handler, calls } = setup({ anonymous: true });
+  assert((await handler(request())).status === 200);
+  assert(calls.length === 3);
+  const reservation = JSON.parse(calls[1].init!.body as string);
+  assert(reservation.p_user_id === user);
+  assert(reservation.p_session_id === session);
+});
+Deno.test("revoked session is rejected before Gemini", async () => {
   const { handler, calls } = setup({ quota: "forbidden" });
   assert((await handler(request())).status === 403);
   assert(calls.length === 2);
