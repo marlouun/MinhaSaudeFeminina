@@ -10,7 +10,7 @@ class ChatConversationContextTest {
 
     @Test fun preparedAnswerAndItsQuestionReachTheAiAsContext() {
         val question = "O que fazer com cólica?"
-        val prepared = PreparedChatResponses.findAnswer(question)!!
+        val prepared = PreparedChatResponses.suggestions.first { it.id == "cramps" }.answer
         val context = buildChatContext(listOf(
             message("Olá!", false), message(question, true), message(prepared, false)
         ), "local-user")
