@@ -1,6 +1,8 @@
 package com.example.minhasaudefeminina
 
 import android.os.Bundle
+import android.graphics.Color
+import androidx.activity.SystemBarStyle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,7 +28,11 @@ import com.example.minhasaudefeminina.viewmodel.AuthViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The app uses a light Compose theme even when the phone is in dark mode.
+        // Use dark status-bar icons over the transparent, light app background.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        )
         val container = (application as MinhaSaudeFemininaApplication).container
         setContent {
             MinhaSaudeFemininaTheme {

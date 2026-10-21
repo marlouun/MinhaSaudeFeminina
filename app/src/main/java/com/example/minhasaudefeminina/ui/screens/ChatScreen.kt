@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.minhasaudefeminina.model.MensagemChat
+import com.example.minhasaudefeminina.domain.chat.PreparedChatResponses
 import com.example.minhasaudefeminina.ui.theme.LightPinkBackground
 import com.example.minhasaudefeminina.ui.theme.RosaClaro
 import com.example.minhasaudefeminina.ui.theme.RosaPrimario
@@ -61,18 +61,14 @@ import java.util.Locale
 fun ChatScreen(viewModel: ChatViewModel) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isTyping by viewModel.isTyping.collectAsStateWithLifecycle()
+    val pendingAiQuestion by viewModel.pendingAiQuestion.collectAsStateWithLifecycle()
+    val consentGranted by viewModel.consentGranted.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var text by rememberSaveable { mutableStateOf("") }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
 
-    val suggestions = listOf(
-        "É normal ter corrimento?",
-        "O que fazer com cólica?",
-        "Minha menstruação atrasou",
-        "Percebi um caroço na mama",
-        "Quais métodos contraceptivos existem?",
-        "Sinto ardor ao urinar"
-    )
+
+    val suggestions = PreparedChatResponses.suggestions
 
     LaunchedEffect(messages.size, isTyping) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -82,7 +78,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(LightPinkBackground)
-            .imePadding()
     ) {
         Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 2.dp) {
             Row(
@@ -92,6 +87,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Dúvidas e orientações", fontSize = 18.sp, color = RosaPrimario, fontWeight = FontWeight.Bold)
                     Text("Informação geral, não diagnóstico", fontSize = 11.sp, color = Color.Gray)
+                }
+                if (consentGranted) {
+                    TextButton(onClick = viewModel::revokeAiConsent) { Text("Desativar IA") }
                 }
                 IconButton(onClick = { showClearDialog = true }) {
                     Icon(Icons.Default.DeleteSweep, "Limpar conversa", tint = RosaSecundario)
@@ -125,8 +123,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             items(suggestions) { suggestion ->
                 SuggestionChip(
-                    onClick = { viewModel.sendMessage(suggestion) },
-                    label = { Text(suggestion, fontSize = 12.sp) },
+                    onClick = { viewModel.sendPreparedQuestion(suggestion.id) },
+                    label = { Text(suggestion.question, fontSize = 12.sp) },
                     colors = SuggestionChipDefaults.suggestionChipColors(
                         containerColor = RosaClaro.copy(alpha = 0.35f),
                         labelColor = RosaPrimario
@@ -148,7 +146,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
                     maxLines = 3,
-                    supportingText = { if (text.length >= 450) Text("${text.length}/500") },
+                    supportingText = if (text.length >= 450) ({ Text("${text.length}/500") }) else null,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = RosaSecundario,
                         unfocusedBorderColor = RosaClaro
@@ -171,6 +169,25 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
         }
+    }
+
+
+    if (pendingAiQuestion != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::declineAiConsent,
+            title = { Text("Consultar assistente com IA?") },
+            text = {
+                Text(
+                    "Versão de testes para maiores de 18 anos. Use apenas perguntas fictícias e gerais. Ao autorizar, esta e futuras perguntas digitadas serão enviadas ao Google Gemini junto de até 6 mensagens recentes desta conversa, incluindo suas perguntas e as respostas prontas ou da IA, para manter o contexto. Também será enviada a fase da vida selecionada no perfil, para adaptar as informações educativas. Nome, e-mail, exames, calendário e sintomas registrados não serão enviados. No plano gratuito, o Google pode usar mensagens e respostas para melhorar seus produtos, inclusive com revisão humana. Não envie informações pessoais, confidenciais, sintomas ou dados reais de saúde. A IA pode errar e não oferece diagnóstico ou prescrição. As respostas prontas continuam disponíveis sem consentimento. Você pode revogar a autorização em Desativar IA."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::acceptAiConsent) { Text("Autorizo o envio", color = RosaPrimario) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::declineAiConsent) { Text("Não enviar") }
+            }
+        )
     }
 
     if (showClearDialog) {

@@ -92,3 +92,16 @@ jobs:
           name: minha-saude-feminina-admin-web
           path: admin-web/dist
           if-no-files-found: error
+
+  chat-function:
+    name: Segurança do chat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.4
+      - name: Verificar função
+        run: deno check supabase/functions/chat-gemini/index.ts
+      - name: Testar autenticação, limites e falhas
+        run: deno test supabase/functions/chat-gemini/handler_test.ts
