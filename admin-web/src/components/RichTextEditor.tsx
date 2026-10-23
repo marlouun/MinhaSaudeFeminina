@@ -24,7 +24,7 @@ import {
   Undo2,
   Unlink,
 } from 'lucide-react'
-import { type ReactNode, useEffect } from 'react'
+import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { ArticleDocument } from '../types/article'
 import { sanitizeArticleDocument } from '../utils/document'
 import { normalizeSafeHttpUrl } from '../utils/url'
@@ -34,6 +34,7 @@ interface RichTextEditorProps {
   content: ArticleDocument
   onChange(content: ArticleDocument): void
   disabled?: boolean
+  uploadImage(file: File): Promise<string>
 }
 
 interface ToolbarButtonProps {
@@ -60,7 +61,11 @@ function ToolbarButton({ label, active = false, disabled = false, onClick, child
   )
 }
 
-export function RichTextEditor({ content, onChange, disabled = false }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, disabled = false, uploadImage }: RichTextEditorProps) {
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const uploadInProgress = useRef(false)
   const editor = useEditor({
     extensions: createEditorExtensions(),
     content: sanitizeArticleDocument(content),
@@ -101,16 +106,25 @@ export function RichTextEditor({ content, onChange, disabled = false }: RichText
     editor.chain().focus().extendMarkRange('link').setLink({ href: safeUrl }).run()
   }
 
-  const addImage = () => {
-    const value = window.prompt('Digite o endereço HTTPS da imagem:')
-    if (value === null) return
-    const safeUrl = normalizeSafeHttpUrl(value)
-    if (!safeUrl) {
-      window.alert('Use um endereço HTTP ou HTTPS válido.')
-      return
+  const addImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || disabled || uploadInProgress.current) return
+    uploadInProgress.current = true
+    setUploading(true)
+    setImageError(null)
+    try {
+      const source = await uploadImage(file)
+      if (!editor.isDestroyed) {
+        const alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 200)
+        editor.chain().focus().setImage({ src: source, alt }).run()
+      }
+    } catch (reason) {
+      setImageError(reason instanceof Error ? reason.message : 'Não foi possível enviar a imagem. Tente novamente.')
+    } finally {
+      uploadInProgress.current = false
+      setUploading(false)
     }
-    const alternativeText = window.prompt('Texto alternativo da imagem:', '') ?? ''
-    editor.chain().focus().setImage({ src: safeUrl, alt: alternativeText.slice(0, 200) }).run()
   }
 
   return (
@@ -135,7 +149,7 @@ export function RichTextEditor({ content, onChange, disabled = false }: RichText
         <span className="editor-toolbar-separator" />
         <ToolbarButton label="Adicionar ou editar link" active={editor.isActive('link')} onClick={addLink}><Link2 size={17} /></ToolbarButton>
         <ToolbarButton label="Remover link" disabled={!editor.isActive('link')} onClick={() => editor.chain().focus().unsetLink().run()}><Unlink size={17} /></ToolbarButton>
-        <ToolbarButton label="Adicionar imagem por endereço" onClick={addImage}><ImagePlus size={17} /></ToolbarButton>
+        <ToolbarButton label="Adicionar imagem do computador" disabled={disabled || uploading} onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} /></ToolbarButton>
         <span className="editor-toolbar-separator" />
         <ToolbarButton label="Alinhar à esquerda" active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft size={17} /></ToolbarButton>
         <ToolbarButton label="Centralizar" active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter size={17} /></ToolbarButton>
@@ -146,6 +160,9 @@ export function RichTextEditor({ content, onChange, disabled = false }: RichText
         <ToolbarButton label="Desfazer" disabled={!editor.can().chain().focus().undo().run()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={17} /></ToolbarButton>
         <ToolbarButton label="Refazer" disabled={!editor.can().chain().focus().redo().run()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={17} /></ToolbarButton>
       </div>
+      <input ref={imageInputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/gif,image/webp" aria-label="Selecionar imagem para o conteúdo" disabled={disabled || uploading} onChange={(event) => void addImage(event)} />
+      {uploading && <p className="px-3 pt-2" role="status">Enviando imagem...</p>}
+      {imageError && <div className="alert alert-danger m-2" role="alert">{imageError}</div>}
       <EditorContent editor={editor} className="editor-content" />
     </div>
   )

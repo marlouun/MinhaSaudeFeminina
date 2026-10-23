@@ -23,6 +23,7 @@ import {
   slugify,
   validateArticle,
 } from '../utils/article'
+import { uploadArticleImage } from '../services/articleImages'
 import { imageFileToDataUrl } from '../utils/image'
 
 const suggestedCategories = [
@@ -283,8 +284,8 @@ export function ArticleEditorPage() {
           </section>
 
           <section className="panel-card editor-section content-editor-section">
-            <div className="section-heading"><div><h2>Conteúdo do artigo</h2><p>Use títulos, listas, destaque, links, citações e imagens por endereço.</p></div></div>
-            <RichTextEditor content={article.content} onChange={(content) => patchArticle({ content })} />
+            <div className="section-heading"><div><h2>Conteúdo do artigo</h2><p>Use títulos, listas, destaque, links, citações e imagens do computador (PNG, JPEG, GIF ou WebP, até 2 MB).</p></div></div>
+            <RichTextEditor uploadImage={(file) => uploadArticleImage(article.id, file)} content={article.content} onChange={(content) => patchArticle({ content })} />
           </section>
         </div>
 
@@ -333,7 +334,7 @@ export function ArticleEditorPage() {
           </section>
 
           <section className="panel-card editor-section">
-            <div className="section-heading"><div><h2>Imagem de capa</h2><p>Até 2 MB nesta versão local.</p></div></div>
+            <div className="section-heading"><div><h2>Imagem de capa</h2><p>PNG, JPEG, GIF ou WebP de até 2 MB.</p></div></div>
             {article.coverImage ? (
               <div className="cover-editor-preview">
                 <img src={article.coverImage} alt={article.coverAlt || 'Prévia da capa'} />
@@ -342,7 +343,7 @@ export function ArticleEditorPage() {
             ) : (
               <label className="cover-upload-placeholder" htmlFor="article-cover"><ImagePlus size={28} /><span>Selecionar imagem</span><small>PNG, JPEG, GIF ou WebP</small></label>
             )}
-            <input id="article-cover" className="visually-hidden" type="file" accept="image/*" onChange={(event) => void handleCoverFile(event)} />
+            <input id="article-cover" className="visually-hidden" type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={(event) => void handleCoverFile(event)} />
             {article.coverImage && <label className="btn btn-outline-primary w-100 mt-2" htmlFor="article-cover"><ImagePlus size={17} /> Trocar imagem</label>}
             <div className="form-field mt-3">
               <label htmlFor="article-cover-alt">Texto alternativo</label>

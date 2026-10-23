@@ -53,3 +53,9 @@ O IndexedDB pertence ao navegador e ao domínio usados. Portanto:
 - publicar significa alterar o status no armazenamento local.
 
 Para sincronização real, implemente uma API que preserve as interfaces `ArticleRepository` e `AdminAuthRepository` existentes.
+
+## Imagens no conteúdo do artigo
+
+O botão **Adicionar imagem do computador** abre o seletor de arquivos. PNG, JPEG, GIF e WebP de até 2 MB são enviados ao bucket `article-images`, em caminhos únicos `content/<artigo>/<uuid>.<extensão>`, com a sessão administrativa existente. O editor insere somente o endereço retornado após upload bem-sucedido e informa falhas sem inserir uma imagem quebrada. Não exige colar URL. A URL pública fica no documento e é preservada pelo salvamento automático. A capa mantém a seleção por arquivo.
+
+As políticas existentes do bucket exigem a lista privada de administradores para envio/alteração/exclusão. Nenhuma chave privilegiada é usada no painel e nenhuma política foi ampliada.
